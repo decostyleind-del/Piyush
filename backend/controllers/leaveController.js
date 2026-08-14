@@ -116,11 +116,14 @@ class LeaveController {
         return res.status(403).json({ message: "Unauthorized action" });
       }
 
-      const updatedLeave = await leaveRepository.updateById(id, updateData);
+      await leaveRepository.updateById(id, updateData);
+
+      // Re-fetch with employee populated, since find() already does this correctly
+      const [populatedLeave] = await leaveRepository.find({ _id: id });
 
       return res.json({
         message: `Leave request ${action.toLowerCase()} successfully`,
-        leave: updatedLeave,
+        leave: populatedLeave,
       });
     } catch (err) {
       res.status(500).json({ message: "Server error", error: err.message });
