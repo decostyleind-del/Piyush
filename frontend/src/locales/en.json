@@ -1,0 +1,88 @@
+{
+  "translation": {
+    "nav": {
+      "logout": "Logout"
+    },
+    "login": {
+      "title": "Leave Management",
+      "subtitle": "Sign in to your secure portal",
+      "employee_portal": "Employee Portal",
+      "management_portal": "HOD / HR / Admin",
+      "emp_code_label": "EMPLOYEE CODE",
+      "emp_code_placeholder": "e.g. EMP001",
+      "email_label": "EMAIL ADDRESS",
+      "email_placeholder": "admin@company.com",
+      "dob_label": "DATE OF BIRTH",
+      "password_label": "PASSWORD",
+      "sign_in": "Sign In",
+      "forgot_details": "Forgot Employee Code or DOB?",
+      "support_title": "Login Assistance",
+      "support_desc": "Unable to login? Send a message to HR and they will verify your account and provide your correct credentials.",
+      "support_email_label": "YOUR EMAIL ADDRESS",
+      "support_email_placeholder": "Enter your email to receive a reply...",
+      "support_msg_label": "MESSAGE / DETAILS",
+      "support_msg_placeholder": "e.g., I forgot my DOB. My employee code is EMP101...",
+      "support_send": "Send Request to HR",
+      "support_sending": "Sending..."
+    },
+    "hr": {
+      "tag": "Human Resources",
+      "tab_leaves": "Leave Register",
+      "tab_directory": "Directory & Credentials",
+      "title_leaves": "Leave Register",
+      "subtitle_leaves": "Company-wide leave requests, reviewed and recorded here.",
+      "title_dir": "Employee Directory",
+      "subtitle_dir": "Look up credentials and assist employees with login issues.",
+      "lookup_title": "Employee Credential Lookup",
+      "lookup_desc": "Search this table when employees submit a help ticket claiming they forgot their Employee Code or DOB. Email them the exact details shown here to resolve their login issue.",
+      "col_name": "Employee Name",
+      "col_email": "Email Address",
+      "col_dept": "Department",
+      "col_code": "Employee Code",
+      "col_dob": "Registered DOB",
+      "no_records": "No employee records found in the database.",
+      "not_set": "Not Set"
+    },
+    "dashboard": {
+      "title": "Employee Dashboard",
+      "welcome": "Welcome back",
+      "apply": "Apply for Leave"
+    },
+    "table": {
+      "type": "Leave Type",
+      "dates": "Dates",
+      "reason": "Reason",
+      "status": "Status",
+      "approver": "Approver Details",
+      "syncing": "Syncing database...",
+      "no_records": "No leave records found.",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "approved_by": "by",
+      "casual": "Casual Leave",
+      "sick": "Sick Leave",
+      "earned": "Earned Leave"
+    },
+    "modal": {
+      "title": "Apply for Leave",
+      "leave_type": "LEAVE TYPE",
+      "casual": "Casual Leave",
+      "sick": "Sick Leave",
+      "earned": "Earned Leave",
+      "reason_label": "REASON FOR LEAVE",
+      "select_reason": "Select a reason...",
+      "cancel": "Cancel",
+      "submit": "Submit Request"
+    },
+    "prerequisite": {
+      "title": "Pre-requisite Check",
+      "description": "Before applying for a formal leave in the system, have you discussed your dates and handover plan with your Head of Department (HOD) or direct manager?",
+      "no": "No, I will do that first",
+      "yes": "Yes, let's proceed"
+    },
+    "errors": {
+      "load_fail": "Failed to load leaves"
+    }
+  }
+}
