@@ -25,7 +25,7 @@ export default function App() {
             flexDirection: "column",
           }}
         >
-          {/* Single Unified Navbar Row with Logo & Language Toggle */}
+          {/* Single Unified Navbar Row with Logo & Languageaaa Toggle */}
           <Navbar />
 
           <main className="main-content" style={{ flex: 1, padding: 0 }}>
