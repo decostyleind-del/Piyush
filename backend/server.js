@@ -23,7 +23,7 @@ connectDB();
 app.use("/api", routes);
 
 // Serve React frontend
-const frontendPath = path.join(__dirname, "../frontend/dist");
+const frontendPath = path.join(__dirname, "public");
 
 app.use(express.static(frontendPath));
 
