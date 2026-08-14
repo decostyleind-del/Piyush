@@ -18,7 +18,9 @@ class LeaveRepository {
   }
 
   async updateById(id, updateData) {
-    return await LeaveRequest.findByIdAndUpdate(id, updateData, { new: true });
+    return await LeaveRequest.findByIdAndUpdate(id, updateData, {
+      new: true,
+    }).populate("employee", "name employeeCode department");
   }
 }
 
