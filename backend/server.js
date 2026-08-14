@@ -8,9 +8,6 @@ const routes = require("./routes");
 
 const app = express();
 
-// --------------------------------------------------
-// CORS
-// --------------------------------------------------
 app.use(
   cors({
     origin: process.env.CLIENT_URL || true,
@@ -19,31 +16,18 @@ app.use(
   })
 );
 
-// --------------------------------------------------
-// Body parser
-// --------------------------------------------------
 app.use(express.json());
 
-// --------------------------------------------------
-// Database
-// --------------------------------------------------
 connectDB();
 
-// --------------------------------------------------
-// API routes
-// --------------------------------------------------
 app.use("/api", routes);
 
-// --------------------------------------------------
-// React frontend
-// --------------------------------------------------
+// Serve React frontend
 const frontendPath = path.join(__dirname, "../frontend/dist");
 
 app.use(express.static(frontendPath));
 
-// --------------------------------------------------
 // React Router fallback
-// --------------------------------------------------
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api")) {
     return next();
@@ -52,11 +36,8 @@ app.get("*", (req, res, next) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 
-// --------------------------------------------------
-// Start server
-// --------------------------------------------------
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running smoothly on port ${PORT}`);
 });
