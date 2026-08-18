@@ -81,6 +81,35 @@
       "no": "No, I will do that first",
       "yes": "Yes, let's proceed"
     },
+    "proof": {
+      "column": "Proof",
+      "request_button": "Request document",
+      "request_modal_title": "Request a supporting document",
+      "request_modal_label": "What do you need from them?",
+      "request_modal_placeholder": "e.g. Please attach a medical certificate for the sick days claimed",
+      "request_send": "Send request",
+      "request_sending": "Sending...",
+      "request_success": "Document request sent to employee",
+      "request_already_pending": "already requested a document for this leave. Please wait for it to be submitted.",
+      "waiting_on_employee": "Waiting on employee",
+      "review_button": "Review documents",
+      "view_modal_title": "Submitted documents",
+      "requested_label": "Requested",
+      "no_files": "No files found.",
+      "employee_modal_title": "Supporting document requested",
+      "employee_asked_prefix": "asked:",
+      "employee_attach_button": "Attach document",
+      "employee_upload_hint": "Click to attach files (JPG, PNG, PDF — max 5MB each)",
+      "employee_uploading": "Uploading...",
+      "employee_no_docs": "No documents attached yet.",
+      "employee_send_button": "Send to reviewer",
+      "employee_sending": "Sending...",
+      "employee_sent_status": "Documents sent — awaiting review",
+      "employee_send_success": "Documents sent for review",
+      "employee_upload_success": "Files uploaded",
+      "employee_delete_success": "File removed",
+      "employee_need_one_file": "Please attach at least one document first"
+    },
     "errors": {
       "load_fail": "Failed to load leaves"
     }

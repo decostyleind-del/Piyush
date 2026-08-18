@@ -11,6 +11,10 @@ import {
   ChevronRight,
   ListChecks,
   Clock,
+  FileText,
+  Paperclip,
+  Download,
+  Send,
 } from "lucide-react";
 
 /* "Personnel Ledger" token system — orange accent to match the
@@ -73,6 +77,99 @@ const StatusStamp = ({ status }) => {
       />
       {cfg.label}
     </span>
+  );
+};
+
+// Proof column cell — mirrors the one in HRDashboard so Admin sees
+// the same "Request document" / "Waiting on employee" / "N files —
+// Review" states.
+const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
+  const proof = leave.proof || { status: "None" };
+
+  if (proof.status === "Submitted") {
+    return (
+      <button
+        onClick={() => onViewDocuments(leave)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.4rem",
+          padding: "0.45rem 0.8rem",
+          borderRadius: "6px",
+          fontSize: "0.75rem",
+          fontWeight: 700,
+          background: T.sageDim,
+          color: T.sage,
+          border: `1px solid ${T.sage}55`,
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <Paperclip size={13} /> {proof.files?.length || 0} file
+        {proof.files?.length === 1 ? "" : "s"} — Review
+      </button>
+    );
+  }
+
+  if (proof.status === "Requested") {
+    return (
+      <span
+        title={proof.remark}
+        style={{
+          display: "inline-flex",
+          flexDirection: "column",
+          gap: "0.2rem",
+          maxWidth: "180px",
+        }}
+      >
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.35rem",
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            color: T.orange,
+          }}
+        >
+          <Clock size={12} /> Waiting on employee
+        </span>
+        <span
+          style={{
+            fontSize: "0.72rem",
+            color: T.textDim,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {proof.requestedByName}: {proof.remark}
+        </span>
+      </span>
+    );
+  }
+
+  // status === "None"
+  return (
+    <button
+      onClick={() => onAskForDocument(leave)}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.4rem",
+        padding: "0.45rem 0.8rem",
+        borderRadius: "6px",
+        fontSize: "0.75rem",
+        fontWeight: 700,
+        background: "transparent",
+        color: T.textDim,
+        border: `1px dashed ${T.hairlineStrong}`,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <FileText size={13} /> Request document
+    </button>
   );
 };
 
@@ -142,6 +239,12 @@ export const AdminDashboard = ({ user, showToast }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
+  // ---- Proof / document workflow state ----
+  const [askDocLeave, setAskDocLeave] = useState(null); // leave currently being asked for a doc
+  const [remarkInput, setRemarkInput] = useState("");
+  const [requestingProof, setRequestingProof] = useState(false);
+  const [viewDocsLeave, setViewDocsLeave] = useState(null); // leave whose submitted docs we're viewing
+
   const fetchLeaves = async () => {
     try {
       const { data } = await API.get("/leaves?role=Admin");
@@ -194,6 +297,44 @@ export const AdminDashboard = ({ user, showToast }) => {
         delete next[id];
         return next;
       });
+    }
+  };
+
+  // ---- Proof / document workflow handlers ----
+
+  const handleSubmitProofRequest = async () => {
+    if (!askDocLeave) return;
+    if (!remarkInput.trim()) {
+      showToast("Please describe what document is needed", "error");
+      return;
+    }
+    setRequestingProof(true);
+    try {
+      const { data } = await API.put(
+        `/leaves/${askDocLeave._id}/request-proof`,
+        {
+          role: "Admin",
+          name: user.name,
+          remark: remarkInput.trim(),
+        },
+      );
+      if (data?.leave) {
+        setLeaves((curr) =>
+          curr.map((l) =>
+            l._id === askDocLeave._id ? { ...l, ...data.leave } : l,
+          ),
+        );
+      }
+      showToast("Document request sent to employee", "success");
+      setAskDocLeave(null);
+      setRemarkInput("");
+    } catch (err) {
+      showToast(
+        err.response?.data?.message || "Failed to send request",
+        "error",
+      );
+    } finally {
+      setRequestingProof(false);
     }
   };
 
@@ -484,7 +625,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                 borderCollapse: "collapse",
                 textAlign: "left",
                 fontSize: "0.9rem",
-                minWidth: "980px",
+                minWidth: "1120px",
               }}
             >
               <thead>
@@ -514,6 +655,9 @@ export const AdminDashboard = ({ user, showToast }) => {
                     Status
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
+                    Proof
+                  </th>
+                  <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
                     Reviewed by
                   </th>
                   <th
@@ -531,7 +675,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                 {initialLoading ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       style={{
                         textAlign: "center",
                         padding: "4.5rem",
@@ -544,7 +688,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                 ) : filteredLeaves.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       style={{ textAlign: "center", padding: "4.5rem" }}
                     >
                       <ClipboardList
@@ -645,6 +789,16 @@ export const AdminDashboard = ({ user, showToast }) => {
                         </td>
                         <td style={{ padding: "1.35rem 1rem" }}>
                           <StatusStamp status={l.status} />
+                        </td>
+                        <td style={{ padding: "1.35rem 1rem" }}>
+                          <ProofCell
+                            leave={l}
+                            onAskForDocument={(leave) => {
+                              setAskDocLeave(leave);
+                              setRemarkInput("");
+                            }}
+                            onViewDocuments={(leave) => setViewDocsLeave(leave)}
+                          />
                         </td>
                         <td
                           style={{
@@ -887,6 +1041,285 @@ export const AdminDashboard = ({ user, showToast }) => {
             >
               {selectedReason}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== ASK FOR DOCUMENT MODAL ==================== */}
+      {askDocLeave && (
+        <div
+          style={{
+            position: "fixed",
+            inset: "0",
+            background: "rgba(6, 9, 17, 0.75)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => !requestingProof && setAskDocLeave(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: T.panel,
+              border: `1px solid ${T.hairlineStrong}`,
+              borderRadius: "10px",
+              padding: "2rem",
+              width: "100%",
+              maxWidth: "460px",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => !requestingProof && setAskDocLeave(null)}
+              style={{
+                position: "absolute",
+                top: "1.25rem",
+                right: "1.25rem",
+                background: "none",
+                border: "none",
+                color: T.textDim,
+                cursor: "pointer",
+              }}
+            >
+              <X size={20} />
+            </button>
+            <h3
+              style={{
+                fontFamily: "'Noto Serif', 'Noto Serif Devanagari', serif",
+                fontSize: "1.25rem",
+                fontWeight: 600,
+                color: T.text,
+                marginBottom: "0.4rem",
+              }}
+            >
+              Request a supporting document
+            </h3>
+            <p
+              style={{
+                color: T.textDim,
+                fontSize: "0.85rem",
+                marginBottom: "1.25rem",
+              }}
+            >
+              {askDocLeave.employee?.name} — {askDocLeave.leaveType}
+            </p>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: T.textDim,
+                marginBottom: "0.5rem",
+              }}
+            >
+              What do you need from them?
+            </label>
+            <textarea
+              value={remarkInput}
+              onChange={(e) => setRemarkInput(e.target.value)}
+              placeholder="e.g. Please attach a medical certificate for the sick days claimed"
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "0.85rem 1rem",
+                background: T.panelRaised,
+                border: `1px solid ${T.hairlineStrong}`,
+                borderRadius: "8px",
+                color: T.text,
+                fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
+                fontSize: "0.9rem",
+                outline: "none",
+                resize: "vertical",
+                boxSizing: "border-box",
+                marginBottom: "1.25rem",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                gap: "0.75rem",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={() => setAskDocLeave(null)}
+                disabled={requestingProof}
+                style={{
+                  padding: "0.65rem 1.2rem",
+                  borderRadius: "7px",
+                  border: `1px solid ${T.hairlineStrong}`,
+                  background: "transparent",
+                  color: T.textDim,
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitProofRequest}
+                disabled={requestingProof}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  padding: "0.65rem 1.2rem",
+                  borderRadius: "7px",
+                  border: "none",
+                  background: `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`,
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  cursor: requestingProof ? "default" : "pointer",
+                  opacity: requestingProof ? 0.7 : 1,
+                }}
+              >
+                <Send size={14} />
+                {requestingProof ? "Sending…" : "Send request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== VIEW SUBMITTED DOCUMENTS MODAL ==================== */}
+      {viewDocsLeave && (
+        <div
+          style={{
+            position: "fixed",
+            inset: "0",
+            background: "rgba(6, 9, 17, 0.75)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setViewDocsLeave(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: T.panel,
+              border: `1px solid ${T.hairlineStrong}`,
+              borderRadius: "10px",
+              padding: "2rem",
+              width: "100%",
+              maxWidth: "520px",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => setViewDocsLeave(null)}
+              style={{
+                position: "absolute",
+                top: "1.25rem",
+                right: "1.25rem",
+                background: "none",
+                border: "none",
+                color: T.textDim,
+                cursor: "pointer",
+              }}
+            >
+              <X size={20} />
+            </button>
+            <h3
+              style={{
+                fontFamily: "'Noto Serif', 'Noto Serif Devanagari', serif",
+                fontSize: "1.25rem",
+                fontWeight: 600,
+                color: T.text,
+                marginBottom: "0.4rem",
+              }}
+            >
+              Submitted documents
+            </h3>
+            <p
+              style={{
+                color: T.textDim,
+                fontSize: "0.85rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              {viewDocsLeave.employee?.name} — {viewDocsLeave.leaveType}
+            </p>
+            <div
+              style={{
+                background: T.panelRaised,
+                border: `1px solid ${T.hairline}`,
+                borderRadius: "8px",
+                padding: "0.85rem 1rem",
+                fontSize: "0.85rem",
+                color: "#c9c5b6",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <strong style={{ color: T.textDim }}>Requested:</strong>{" "}
+              {viewDocsLeave.proof?.remark}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.6rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              {(viewDocsLeave.proof?.files || []).map((f) => (
+                <a
+                  key={f._id}
+                  href={f.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    background: T.panelRaised,
+                    border: `1px solid ${T.hairlineStrong}`,
+                    borderRadius: "8px",
+                    color: T.text,
+                    textDecoration: "none",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.6rem",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <FileText size={16} color={T.orange} />
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {f.originalName}
+                    </span>
+                  </span>
+                  <Download size={15} color={T.textDim} />
+                </a>
+              ))}
+              {(!viewDocsLeave.proof?.files ||
+                viewDocsLeave.proof.files.length === 0) && (
+                <p style={{ color: T.textDim, fontSize: "0.85rem" }}>
+                  No files found.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

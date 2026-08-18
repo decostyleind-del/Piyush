@@ -1,5 +1,10 @@
+const fs = require("fs");
+const path = require("path");
 const leaveRepository = require("../repositories/leaveRepository");
 const userRepository = require("../repositories/userRepository");
+const { ABSOLUTE_UPLOAD_PATH } = require("../middleware/upload");
+
+const REVIEWER_ROLES = ["HOD", "HR", "Admin"];
 
 class LeaveController {
   async getLeaves(req, res) {
@@ -125,6 +130,169 @@ class LeaveController {
         message: `Leave request ${action.toLowerCase()} successfully`,
         leave: populatedLeave,
       });
+    } catch (err) {
+      res.status(500).json({ message: "Server error", error: err.message });
+    }
+  }
+
+  // ==========================================================
+  // PROOF / DOCUMENT WORKFLOW
+  // ==========================================================
+
+  // HOD / HR / Admin ask the employee to attach a supporting document.
+  // Only one active ("Requested") ask is allowed at a time.
+  async requestProof(req, res) {
+    try {
+      const { id } = req.params;
+      const { role, name, remark } = req.body;
+
+      if (!REVIEWER_ROLES.includes(role)) {
+        return res.status(403).json({ message: "Unauthorized action" });
+      }
+      if (!remark || !remark.trim()) {
+        return res
+          .status(400)
+          .json({ message: "Please describe what document is required" });
+      }
+
+      const leave = await leaveRepository.findById(id);
+      if (!leave)
+        return res.status(404).json({ message: "Leave request not found" });
+
+      // Lock: if someone already asked and is still waiting, nobody else can ask again
+      if (leave.proof?.status === "Requested") {
+        return res.status(409).json({
+          message: `${leave.proof.requestedByName || "Someone"} already requested a document for this leave. Please wait for it to be submitted.`,
+        });
+      }
+
+      const approver = await userRepository.findByName(name);
+      let formattedRole = role;
+      if (role === "HOD" && approver) {
+        formattedRole = `HOD - ${approver.department}`;
+      }
+
+      const updated = await leaveRepository.updateById(id, {
+        proof: {
+          status: "Requested",
+          remark: remark.trim(),
+          requestedByRole: formattedRole,
+          requestedByName: name,
+          requestedAt: new Date(),
+          submittedAt: null,
+          // keep any previously submitted files visible for reference
+          files: leave.proof?.files || [],
+        },
+      });
+
+      res.json({
+        message: "Document request sent to employee",
+        leave: updated,
+      });
+    } catch (err) {
+      res.status(500).json({ message: "Server error", error: err.message });
+    }
+  }
+
+  // Employee uploads one or more proof files while a request is active
+  async uploadProofFiles(req, res) {
+    try {
+      const { id } = req.params;
+      const leave = await leaveRepository.findById(id);
+      if (!leave)
+        return res.status(404).json({ message: "Leave request not found" });
+
+      if (!leave.proof || leave.proof.status !== "Requested") {
+        return res
+          .status(400)
+          .json({
+            message: "There is no active document request for this leave",
+          });
+      }
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: "No files were uploaded" });
+      }
+
+      const baseUrl = (
+        process.env.BASE_URL || `${req.protocol}://${req.get("host")}`
+      ).replace(/\/$/, "");
+      const uploadDir = (
+        process.env.UPLOAD_DIR || "uploads/leave-proofs"
+      ).replace(/^\/|\/$/g, "");
+
+      const newFiles = req.files.map((f) => ({
+        originalName: f.originalname,
+        fileName: f.filename,
+        fileUrl: `${baseUrl}/${uploadDir}/${f.filename}`,
+        fileType: f.mimetype,
+        fileSize: f.size,
+        uploadedAt: new Date(),
+      }));
+
+      const updated = await leaveRepository.pushProofFiles(id, newFiles);
+      res.json({ message: "Files uploaded", leave: updated });
+    } catch (err) {
+      res.status(500).json({ message: "Upload failed", error: err.message });
+    }
+  }
+
+  // Employee removes a file they added, before final send
+  async deleteProofFile(req, res) {
+    try {
+      const { id, fileId } = req.params;
+      const leave = await leaveRepository.findById(id);
+      if (!leave)
+        return res.status(404).json({ message: "Leave request not found" });
+
+      if (!leave.proof || leave.proof.status !== "Requested") {
+        return res
+          .status(400)
+          .json({ message: "Documents can no longer be edited" });
+      }
+
+      const file = leave.proof.files.id(fileId);
+      if (file) {
+        const filePath = path.join(ABSOLUTE_UPLOAD_PATH, file.fileName);
+        fs.unlink(filePath, () => {
+          // ignore errors here — if the file is already gone on disk,
+          // we still want the DB record removed below
+        });
+      }
+
+      const updated = await leaveRepository.removeProofFile(id, fileId);
+      res.json({ message: "File removed", leave: updated });
+    } catch (err) {
+      res.status(500).json({ message: "Server error", error: err.message });
+    }
+  }
+
+  // Employee finalizes — locks the files and notifies the reviewer
+  async submitProof(req, res) {
+    try {
+      const { id } = req.params;
+      const leave = await leaveRepository.findById(id);
+      if (!leave)
+        return res.status(404).json({ message: "Leave request not found" });
+
+      if (!leave.proof || leave.proof.status !== "Requested") {
+        return res
+          .status(400)
+          .json({ message: "There is no pending document request" });
+      }
+      if (!leave.proof.files || leave.proof.files.length === 0) {
+        return res
+          .status(400)
+          .json({
+            message: "Please attach at least one document before sending",
+          });
+      }
+
+      const updated = await leaveRepository.updateById(id, {
+        "proof.status": "Submitted",
+        "proof.submittedAt": new Date(),
+      });
+
+      res.json({ message: "Documents sent for review", leave: updated });
     } catch (err) {
       res.status(500).json({ message: "Server error", error: err.message });
     }

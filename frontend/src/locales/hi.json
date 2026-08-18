@@ -81,6 +81,35 @@
       "no": "नहीं, मैं पहले वह करूँगा",
       "yes": "हाँ, आगे बढ़ें"
     },
+    "proof": {
+      "column": "दस्तावेज़",
+      "request_button": "दस्तावेज़ माँगें",
+      "request_modal_title": "सहायक दस्तावेज़ का अनुरोध करें",
+      "request_modal_label": "आपको उनसे क्या चाहिए?",
+      "request_modal_placeholder": "उदा., कृपया बीमारी की छुट्टी के लिए मेडिकल सर्टिफिकेट संलग्न करें",
+      "request_send": "अनुरोध भेजें",
+      "request_sending": "भेजा जा रहा है...",
+      "request_success": "कर्मचारी को दस्तावेज़ अनुरोध भेजा गया",
+      "request_already_pending": "ने पहले ही इस छुट्टी के लिए दस्तावेज़ माँगा है। कृपया उसके सबमिट होने का इंतज़ार करें।",
+      "waiting_on_employee": "कर्मचारी की प्रतीक्षा में",
+      "review_button": "दस्तावेज़ देखें",
+      "view_modal_title": "सबमिट किए गए दस्तावेज़",
+      "requested_label": "अनुरोध किया गया",
+      "no_files": "कोई फ़ाइल नहीं मिली।",
+      "employee_modal_title": "सहायक दस्तावेज़ का अनुरोध किया गया है",
+      "employee_asked_prefix": "ने पूछा:",
+      "employee_attach_button": "दस्तावेज़ संलग्न करें",
+      "employee_upload_hint": "फ़ाइलें संलग्न करने के लिए क्लिक करें (JPG, PNG, PDF — अधिकतम 5MB प्रति फ़ाइल)",
+      "employee_uploading": "अपलोड हो रहा है...",
+      "employee_no_docs": "अभी तक कोई दस्तावेज़ संलग्न नहीं किया गया।",
+      "employee_send_button": "समीक्षक को भेजें",
+      "employee_sending": "भेजा जा रहा है...",
+      "employee_sent_status": "दस्तावेज़ भेजे गए — समीक्षा की प्रतीक्षा में",
+      "employee_send_success": "समीक्षा के लिए दस्तावेज़ भेजे गए",
+      "employee_upload_success": "फ़ाइलें अपलोड हो गईं",
+      "employee_delete_success": "फ़ाइल हटा दी गई",
+      "employee_need_one_file": "कृपया पहले कम से कम एक दस्तावेज़ संलग्न करें"
+    },
     "errors": {
       "load_fail": "पत्तियां लोड करने में विफल"
     }

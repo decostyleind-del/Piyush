@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
 import { LeaveModal } from "../components/LeaveModal";
+import { ProofUploadModal } from "../components/ProofUploadModal";
 import {
   PlusCircle,
   ClipboardList,
@@ -10,6 +11,8 @@ import {
   ListChecks,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  UploadCloud,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -70,6 +73,43 @@ const StatusStamp = ({ status, label }) => {
           flexShrink: 0,
         }}
       />
+      {label}
+    </span>
+  );
+};
+
+/* Small pill for the Proof column — separate from StatusStamp because
+   the vocabulary/colors differ (Requested = attention/orange,
+   Submitted = sage, none = muted dash). */
+const ProofStamp = ({ status, label }) => {
+  const cfg = {
+    Requested: { color: T.orange, bg: T.orangeDim },
+    Submitted: { color: T.sage, bg: T.sageDim },
+  }[status] || { color: T.textDim, bg: "rgba(150,145,127,0.1)" };
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.45rem",
+        padding: "0.45rem 0.95rem 0.45rem 0.75rem",
+        borderRadius: "5px",
+        fontSize: "0.9rem",
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
+        color: cfg.color,
+        background: cfg.bg,
+        border: `1px solid ${cfg.color}55`,
+      }}
+    >
+      {status === "Requested" ? (
+        <UploadCloud size={14} strokeWidth={2.5} />
+      ) : status === "Submitted" ? (
+        <FileText size={14} strokeWidth={2.5} />
+      ) : null}
       {label}
     </span>
   );
@@ -138,6 +178,9 @@ export const EmployeeDashboard = ({ user, showToast }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
+  // Leave whose proof modal is currently open (null = closed)
+  const [proofLeave, setProofLeave] = useState(null);
+
   const fetchLeaves = async () => {
     try {
       setLoading(true);
@@ -169,6 +212,24 @@ export const EmployeeDashboard = ({ user, showToast }) => {
         ? t("table.rejected")
         : t("table.pending");
 
+  const isHindi = t("table.type") === "छुट्टी का प्रकार";
+
+  // proof.status labels — mirrors table.approved/rejected/pending pattern.
+  // Falls back to plain English/Hindi if these keys aren't in en.json/hi.json yet.
+  const proofLabel = (status) => {
+    if (status === "Requested")
+      return t(
+        "table.proof_requested",
+        isHindi ? "दस्तावेज़ माँगा गया" : "Requested",
+      );
+    if (status === "Submitted")
+      return t(
+        "table.proof_submitted",
+        isHindi ? "दस्तावेज़ जमा" : "Submitted",
+      );
+    return "—";
+  };
+
   const stats = useMemo(() => {
     const total = leaves.length;
     const pending = leaves.filter((l) => l.status === "Pending").length;
@@ -182,8 +243,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
     const start = (currentPage - 1) * rowsPerPage;
     return leaves.slice(start, start + rowsPerPage);
   }, [leaves, currentPage]);
-
-  const isHindi = t("table.type") === "छुट्टी का प्रकार";
 
   return (
     <div
@@ -318,7 +377,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
         </div>
 
         {/* Leave History */}
-        {/* Leave History */}
         <div
           style={{
             background: T.panel,
@@ -355,7 +413,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                 borderCollapse: "collapse",
                 textAlign: "left",
                 fontSize: "1rem",
-                minWidth: "950px", // Increased minWidth to ensure all columns fit comfortably
+                minWidth: "1080px", // widened to fit the new Proof column
               }}
             >
               <thead>
@@ -373,7 +431,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                     style={{
                       padding: "1.6rem 2rem",
                       fontWeight: 700,
-                      width: "18%",
+                      width: "15%",
                     }}
                   >
                     {t("table.type")}
@@ -382,7 +440,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                     style={{
                       padding: "1.6rem 1.25rem",
                       fontWeight: 700,
-                      width: "20%",
+                      width: "17%",
                     }}
                   >
                     {t("table.dates")}
@@ -391,7 +449,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                     style={{
                       padding: "1.6rem 1.25rem",
                       fontWeight: 700,
-                      width: "26%",
+                      width: "21%",
                     }}
                   >
                     {t("table.reason")}
@@ -400,16 +458,25 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                     style={{
                       padding: "1.6rem 1.25rem",
                       fontWeight: 700,
-                      width: "16%",
+                      width: "14%",
                     }}
                   >
                     {t("table.status")}
                   </th>
                   <th
                     style={{
+                      padding: "1.6rem 1.25rem",
+                      fontWeight: 700,
+                      width: "16%",
+                    }}
+                  >
+                    {isHindi ? "दस्तावेज़" : "Proof"}
+                  </th>
+                  <th
+                    style={{
                       padding: "1.6rem 2rem",
                       fontWeight: 700,
-                      width: "20%",
+                      width: "17%",
                     }}
                   >
                     {t("table.approver")}
@@ -417,11 +484,10 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                 </tr>
               </thead>
               <tbody>
-                {/* Your table body mapping remains exactly the same */}
                 {loading ? (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan="6"
                       style={{
                         textAlign: "center",
                         padding: "5rem",
@@ -435,7 +501,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                 ) : leaves.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan="6"
                       style={{ textAlign: "center", padding: "5rem" }}
                     >
                       <ClipboardList
@@ -449,79 +515,164 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                     </td>
                   </tr>
                 ) : (
-                  paginatedLeaves.map((l) => (
-                    <tr
-                      key={l._id}
-                      style={{
-                        borderBottom: `1px solid ${T.hairline}`,
-                        transition: "background 0.15s",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background = T.panelRaised)
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
-                    >
-                      <td
+                  paginatedLeaves.map((l) => {
+                    const proofStatus = l.proof?.status; // "Requested" | "Submitted" | undefined
+                    return (
+                      <tr
+                        key={l._id}
                         style={{
-                          padding: "1.75rem 2rem",
-                          fontWeight: 700,
-                          fontSize: "1.2rem",
+                          borderBottom: `1px solid ${T.hairline}`,
+                          transition: "background 0.15s",
                         }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = T.panelRaised)
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "transparent")
+                        }
                       >
-                        {l.leaveType}
-                      </td>
-                      <td
-                        style={{
-                          padding: "1.75rem 1.25rem",
-                          color: T.textDim,
-                          whiteSpace: "nowrap",
-                          fontSize: "1.15rem",
-                        }}
-                      >
-                        {new Date(l.startDate).toLocaleDateString()} →{" "}
-                        {new Date(l.endDate).toLocaleDateString()}
-                      </td>
-                      <td
-                        style={{
-                          padding: "1.75rem 1.25rem",
-                          color: "#c9c5b6",
-                          maxWidth: "380px",
-                          fontSize: "1.15rem",
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {l.reason}
-                      </td>
-                      <td style={{ padding: "1.75rem 1.25rem" }}>
-                        <StatusStamp
-                          status={l.status}
-                          label={statusLabel(l.status)}
-                        />
-                      </td>
-                      <td
-                        style={{
-                          padding: "1.75rem 2rem",
-                          color: T.textDim,
-                          fontSize: "1.1rem",
-                        }}
-                      >
-                        {l.approvedByName && l.approvedByRole ? (
-                          <span>
-                            {statusLabel(l.status)}{" "}
-                            {t("table.approved_by").toLowerCase() ===
-                            "द्वारा स्वीकृत"
-                              ? "द्वारा"
-                              : "by"}{" "}
-                            {l.approvedByName} ({l.approvedByRole})
-                          </span>
-                        ) : (
-                          t("table.pending")
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                        <td
+                          style={{
+                            padding: "1.75rem 2rem",
+                            fontWeight: 700,
+                            fontSize: "1.2rem",
+                          }}
+                        >
+                          {l.leaveType}
+                        </td>
+                        <td
+                          style={{
+                            padding: "1.75rem 1.25rem",
+                            color: T.textDim,
+                            whiteSpace: "nowrap",
+                            fontSize: "1.15rem",
+                          }}
+                        >
+                          {new Date(l.startDate).toLocaleDateString()} →{" "}
+                          {new Date(l.endDate).toLocaleDateString()}
+                        </td>
+                        <td
+                          style={{
+                            padding: "1.75rem 1.25rem",
+                            color: "#c9c5b6",
+                            maxWidth: "380px",
+                            fontSize: "1.15rem",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {l.reason}
+                        </td>
+                        <td style={{ padding: "1.75rem 1.25rem" }}>
+                          <StatusStamp
+                            status={l.status}
+                            label={statusLabel(l.status)}
+                          />
+                        </td>
+                        <td style={{ padding: "1.75rem 1.25rem" }}>
+                          {proofStatus ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "flex-start",
+                                gap: "0.6rem",
+                              }}
+                            >
+                              <ProofStamp
+                                status={proofStatus}
+                                label={proofLabel(proofStatus)}
+                              />
+
+                              {/* Remark from HR/HOD explaining what's needed */}
+                              {l.proof?.remark && (
+                                <div
+                                  style={{
+                                    color: T.textDim,
+                                    fontSize: "0.95rem",
+                                    lineHeight: 1.4,
+                                    maxWidth: "220px",
+                                  }}
+                                >
+                                  “{l.proof.remark}”
+                                </div>
+                              )}
+
+                              {/* Only actionable while HR/HOD is still waiting on the employee */}
+                              {proofStatus === "Requested" && (
+                                <button
+                                  onClick={() => setProofLeave(l)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.4rem",
+                                    padding: "0.55rem 0.95rem",
+                                    borderRadius: "7px",
+                                    fontSize: "0.9rem",
+                                    fontWeight: 700,
+                                    background: T.orangeDim,
+                                    color: T.orange,
+                                    border: `1px solid ${T.orange}55`,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  <UploadCloud size={15} strokeWidth={2.5} />
+                                  {isHindi ? "अपलोड करें" : "Upload"}
+                                </button>
+                              )}
+
+                              {proofStatus === "Submitted" && (
+                                <button
+                                  onClick={() => setProofLeave(l)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.4rem",
+                                    padding: "0.55rem 0.95rem",
+                                    borderRadius: "7px",
+                                    fontSize: "0.9rem",
+                                    fontWeight: 700,
+                                    background: "transparent",
+                                    color: T.textDim,
+                                    border: `1px solid ${T.hairlineStrong}`,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  <FileText size={15} strokeWidth={2.5} />
+                                  {isHindi ? "देखें" : "View"}
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span
+                              style={{ color: T.textDim, fontSize: "1.05rem" }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          style={{
+                            padding: "1.75rem 2rem",
+                            color: T.textDim,
+                            fontSize: "1.1rem",
+                          }}
+                        >
+                          {l.approvedByName && l.approvedByRole ? (
+                            <span>
+                              {statusLabel(l.status)}{" "}
+                              {t("table.approved_by").toLowerCase() ===
+                              "द्वारा स्वीकृत"
+                                ? "द्वारा"
+                                : "by"}{" "}
+                              {l.approvedByName} ({l.approvedByRole})
+                            </span>
+                          ) : (
+                            t("table.pending")
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -540,12 +691,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                 borderTop: `1px solid ${T.hairline}`,
               }}
             >
-              <div
-                style={{
-                  color: T.textDim,
-                  fontSize: "0.95rem",
-                }}
-              >
+              <div style={{ color: T.textDim, fontSize: "0.95rem" }}>
                 {isHindi
                   ? `कुल ${leaves.length} में से ${
                       (currentPage - 1) * rowsPerPage + 1
@@ -557,11 +703,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
               </div>
 
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
               >
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -647,6 +789,27 @@ export const EmployeeDashboard = ({ user, showToast }) => {
           user={user}
           onClose={() => setIsModalOpen(false)}
           onSuccess={fetchLeaves}
+          showToast={showToast}
+        />
+      )}
+
+      {/* Proof upload/view modal.
+          Assumed prop contract (adjust to match your actual ProofUploadModal.jsx):
+            leave      -> the full leave doc (has ._id and .proof)
+            user       -> current employee, for auth headers/body as needed
+            onClose    -> close without necessarily refetching
+            onSuccess  -> called after upload / delete / submit-to-review;
+                          triggers fetchLeaves() so the row's proof.status updates
+            showToast  -> reuse existing toast pattern for success/error messages */}
+      {proofLeave && (
+        <ProofUploadModal
+          leave={proofLeave}
+          user={user}
+          onClose={() => setProofLeave(null)}
+          onSuccess={() => {
+            setProofLeave(null);
+            fetchLeaves();
+          }}
           showToast={showToast}
         />
       )}

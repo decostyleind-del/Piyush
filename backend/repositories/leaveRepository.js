@@ -22,6 +22,28 @@ class LeaveRepository {
       new: true,
     }).populate("employee", "name employeeCode department");
   }
+
+  // ==========================================================
+  // PROOF / DOCUMENT WORKFLOW HELPERS
+  // ==========================================================
+
+  // Add newly uploaded files to the proof.files array
+  async pushProofFiles(id, files) {
+    return await LeaveRequest.findByIdAndUpdate(
+      id,
+      { $push: { "proof.files": { $each: files } } },
+      { new: true },
+    ).populate("employee", "name employeeCode department");
+  }
+
+  // Remove a single file (employee deleting before final send)
+  async removeProofFile(id, fileId) {
+    return await LeaveRequest.findByIdAndUpdate(
+      id,
+      { $pull: { "proof.files": { _id: fileId } } },
+      { new: true },
+    ).populate("employee", "name employeeCode department");
+  }
 }
 
 // THIS BOTTOM LINE IS CRUCIAL: You must use "new" so the methods are accessible
