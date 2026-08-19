@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const leaveRepository = require("../repositories/leaveRepository");
 const userRepository = require("../repositories/userRepository");
+const User = require("../models/User"); // Required to filter roles for HR
 const { ABSOLUTE_UPLOAD_PATH } = require("../middleware/upload");
 
 const REVIEWER_ROLES = ["HOD", "HR", "Admin"];
@@ -12,30 +13,36 @@ class LeaveController {
       const { userId, role } = req.query;
       let query = {};
 
-      // 1. Department Isolation Logic
+      // ===============================================
+      // LEAVE VISIBILITY RULES
+      // ===============================================
       if (role === "Employee") {
+        // 1. Employee sees ONLY their own leaves
         query.employee = userId;
       } else if (role === "HOD") {
-        // Fetch the HOD user to get their employeeCode
+        // 2. HOD sees ONLY their direct reports (Hides their own leaves)
         const hod = await userRepository.findById(userId);
         if (!hod) return res.status(404).json({ message: "HOD not found" });
 
-        // Find all employees reporting directly to this HOD
         const employees = await userRepository.findEmployeesByManager(
           hod.employeeCode,
         );
         const employeeIds = employees.map((emp) => emp._id);
 
-        // Restrict query to only those employees
         query.employee = { $in: employeeIds };
+      } else if (role === "HR") {
+        // 3. HR sees Employee and HOD leaves (Hides HR and Admin leaves)
+        const validUsers = await User.find({
+          role: { $in: ["Employee", "HOD"] },
+        });
+        const validUserIds = validUsers.map((u) => u._id);
+
+        query.employee = { $in: validUserIds };
+      } else if (role === "Admin") {
+        // 4. Admin sees absolutely everything (query stays empty: {})
       }
-      // HR and Admin queries remain empty so they see everything
 
       let requests = await leaveRepository.find(query);
-
-      // The 1-Hour Admin Window Logic has been completely removed.
-      // The employee will now immediately see the actual DB status.
-
       res.json(requests);
     } catch (err) {
       res
@@ -76,13 +83,12 @@ class LeaveController {
   async handleAction(req, res) {
     try {
       const { id } = req.params;
-      const { role, name, action } = req.body; // action: 'Approved' or 'Rejected'
+      const { role, name, action } = req.body;
 
       const leave = await leaveRepository.findById(id);
       if (!leave)
         return res.status(404).json({ message: "Leave request not found" });
 
-      // Fetch the approver to dynamically format their role (e.g., 'HOD - IT')
       const approver = await userRepository.findByName(name);
       let formattedRole = role;
 
@@ -92,7 +98,6 @@ class LeaveController {
 
       let updateData = {};
 
-      // Master Override (Admin)
       if (role === "Admin") {
         updateData = {
           status: action,
@@ -100,9 +105,7 @@ class LeaveController {
           approvedByName: name,
           adminOverridden: true,
         };
-      }
-      // Standard Approvers (HOD / HR)
-      else if (role === "HOD" || role === "HR") {
+      } else if (role === "HOD" || role === "HR") {
         if (action === "Approved") {
           updateData = {
             status: "Approved",
@@ -122,8 +125,6 @@ class LeaveController {
       }
 
       await leaveRepository.updateById(id, updateData);
-
-      // Re-fetch with employee populated, since find() already does this correctly
       const [populatedLeave] = await leaveRepository.find({ _id: id });
 
       return res.json({
@@ -135,12 +136,6 @@ class LeaveController {
     }
   }
 
-  // ==========================================================
-  // PROOF / DOCUMENT WORKFLOW
-  // ==========================================================
-
-  // HOD / HR / Admin ask the employee to attach a supporting document.
-  // Only one active ("Requested") ask is allowed at a time.
   async requestProof(req, res) {
     try {
       const { id } = req.params;
@@ -159,7 +154,6 @@ class LeaveController {
       if (!leave)
         return res.status(404).json({ message: "Leave request not found" });
 
-      // Lock: if someone already asked and is still waiting, nobody else can ask again
       if (leave.proof?.status === "Requested") {
         return res.status(409).json({
           message: `${leave.proof.requestedByName || "Someone"} already requested a document for this leave. Please wait for it to be submitted.`,
@@ -180,7 +174,6 @@ class LeaveController {
           requestedByName: name,
           requestedAt: new Date(),
           submittedAt: null,
-          // keep any previously submitted files visible for reference
           files: leave.proof?.files || [],
         },
       });
@@ -194,7 +187,6 @@ class LeaveController {
     }
   }
 
-  // Employee uploads one or more proof files while a request is active
   async uploadProofFiles(req, res) {
     try {
       const { id } = req.params;
@@ -203,11 +195,9 @@ class LeaveController {
         return res.status(404).json({ message: "Leave request not found" });
 
       if (!leave.proof || leave.proof.status !== "Requested") {
-        return res
-          .status(400)
-          .json({
-            message: "There is no active document request for this leave",
-          });
+        return res.status(400).json({
+          message: "There is no active document request for this leave",
+        });
       }
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({ message: "No files were uploaded" });
@@ -236,7 +226,6 @@ class LeaveController {
     }
   }
 
-  // Employee removes a file they added, before final send
   async deleteProofFile(req, res) {
     try {
       const { id, fileId } = req.params;
@@ -253,10 +242,7 @@ class LeaveController {
       const file = leave.proof.files.id(fileId);
       if (file) {
         const filePath = path.join(ABSOLUTE_UPLOAD_PATH, file.fileName);
-        fs.unlink(filePath, () => {
-          // ignore errors here — if the file is already gone on disk,
-          // we still want the DB record removed below
-        });
+        fs.unlink(filePath, () => {});
       }
 
       const updated = await leaveRepository.removeProofFile(id, fileId);
@@ -266,7 +252,6 @@ class LeaveController {
     }
   }
 
-  // Employee finalizes — locks the files and notifies the reviewer
   async submitProof(req, res) {
     try {
       const { id } = req.params;
@@ -280,11 +265,9 @@ class LeaveController {
           .json({ message: "There is no pending document request" });
       }
       if (!leave.proof.files || leave.proof.files.length === 0) {
-        return res
-          .status(400)
-          .json({
-            message: "Please attach at least one document before sending",
-          });
+        return res.status(400).json({
+          message: "Please attach at least one document before sending",
+        });
       }
 
       const updated = await leaveRepository.updateById(id, {

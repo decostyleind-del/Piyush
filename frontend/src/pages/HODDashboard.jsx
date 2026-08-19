@@ -876,7 +876,7 @@ export const HODDashboard = ({ user, showToast }) => {
                                 border: `1px solid ${T.hairlineStrong}`,
                               }}
                             >
-                              FILED
+                              DONE
                             </span>
                           )}
                         </td>

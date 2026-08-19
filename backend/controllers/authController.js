@@ -1,11 +1,10 @@
 const userRepository = require("../repositories/userRepository");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken"); // Make sure to require JWT!
+const jwt = require("jsonwebtoken");
 
 class AuthController {
   // 1. Generate Token Helper Function
   generateToken(id) {
-    // Falls back to a default secret if you haven't set JWT_SECRET in your .env yet
     const secret = process.env.JWT_SECRET || "fallback_super_secret_key";
     return jwt.sign({ id }, secret, { expiresIn: "30d" });
   }
@@ -14,7 +13,10 @@ class AuthController {
     try {
       const { email, password, employeeCode, dob } = req.body;
 
-      // Employee Login via Code + DOB
+      // ===============================================
+      // Employee Portal Login (Code + DOB)
+      // Anyone (HOD, HR, Admin, Employee) can log in here to apply for their own leave
+      // ===============================================
       if (employeeCode && dob) {
         const user = await userRepository.findByEmployeeCode(employeeCode);
 
@@ -24,7 +26,6 @@ class AuthController {
             .json({ message: "Invalid Employee Code or Date of Birth" });
         }
 
-        // Convert DB date to YYYY-MM-DD for safe comparison
         const formattedDbDob = new Date(user.dob).toISOString().split("T")[0];
 
         if (formattedDbDob !== dob) {
@@ -33,23 +34,33 @@ class AuthController {
             .json({ message: "Invalid Employee Code or Date of Birth" });
         }
 
-        // Generate Token and attach it to response
         const token = this.generateToken(user._id);
         return res.json({ message: "Login successful", user, token });
       }
 
-      // HOD, HR, Admin Login via Email + Password
+      // ===============================================
+      // Management Portal Login (Email + Password)
+      // ONLY HOD, HR, and Admin can log in here
+      // ===============================================
       if (email && password) {
         const user = await userRepository.findByEmail(email);
         if (!user) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
+
+        // STRICT BLOCK: Prevent standard employees from using the Management Portal
+        if (user.role === "Employee") {
+          return res.status(403).json({
+            message:
+              "Access Denied. Employees must log in via the Employee Portal.",
+          });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
           return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        // Generate Token and attach it to response
         const token = this.generateToken(user._id);
         return res.json({ message: "Login successful", user, token });
       }
@@ -62,11 +73,9 @@ class AuthController {
     }
   }
 
-  // 2. ADD THIS NEW METHOD FOR getMe
+  // 2. getMe method
   async getMe(req, res) {
     try {
-      // req.user should be attached by your 'protect' middleware
-      // We look up the user by that ID
       const user = await userRepository.findById(req.user.id);
 
       if (!user) {
@@ -80,7 +89,6 @@ class AuthController {
   }
 }
 
-// Ensure the context of 'this' is preserved for the generateToken method
 const authController = new AuthController();
 authController.login = authController.login.bind(authController);
 authController.getMe = authController.getMe.bind(authController);

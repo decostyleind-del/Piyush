@@ -15,7 +15,6 @@ import { HRDashboard } from "../pages/HRDashboard";
 import { AdminDashboard } from "../pages/AdminDashboard";
 
 export const AppRoutes = ({ showToast }) => {
-  // FIX: Destructure 'user' from useAuth so we can pass it to the dashboards
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -56,15 +55,21 @@ export const AppRoutes = ({ showToast }) => {
       />
 
       {/* PROTECTED DASHBOARDS */}
+
+      {/* 
+        FIXED: Removed "Admin" from allowedRoles. 
+        Admin cannot access this page. Only Employee, HOD, and HR can apply for leaves.
+        Also added user and showToast props to EmployeeDashboard.
+      */}
       <Route
         path="/employee"
         element={
-          <RoleBasedRoute
-            element={<EmployeeDashboard user={user} showToast={showToast} />}
-            allowedRole="Employee"
-          />
+          <RoleBasedRoute allowedRoles={["Employee", "HOD", "HR"]}>
+            <EmployeeDashboard user={user} showToast={showToast} />
+          </RoleBasedRoute>
         }
       />
+
       <Route
         path="/hod"
         element={

@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LogIn, HelpCircle, X, Send } from "lucide-react";
-import API from "../api/axios"; // Ensure you import your API instance
+import { LogIn, HelpCircle, X, Send, Eye, EyeOff } from "lucide-react"; // <-- Added Eye and EyeOff
+import API from "../api/axios";
 
 /* "Personnel Ledger" token system */
 const T = {
@@ -52,6 +52,7 @@ export const Login = ({ showToast }) => {
   const [dob, setDob] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // <-- State for Eye icon toggle
 
   // Support Ticket State
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -71,10 +72,20 @@ export const Login = ({ showToast }) => {
       const user = await login(credentials);
       showToast("Login successful!", "success");
 
-      if (user.role === "Admin") navigate("/admin");
-      else if (user.role === "HR") navigate("/hr");
-      else if (user.role === "HOD") navigate("/hod");
-      else navigate("/employee");
+      // DUAL-ROLE ROUTING LOGIC
+      if (!isAdminLogin) {
+        // If they logged in via Employee Portal, force them to Employee Dashboard
+        // so HOD/HR can apply for their own leave.
+        navigate("/employee");
+      } else {
+        // If they logged in via Management Portal, route by role
+        if (user.role === "Admin") navigate("/admin");
+        else if (user.role === "HR") navigate("/hr");
+        else if (user.role === "HOD") navigate("/hod");
+        else {
+          showToast("Employees cannot access the management portal", "error");
+        }
+      }
     } catch (err) {
       showToast(err.response?.data?.message || "Invalid credentials", "error");
     }
@@ -85,7 +96,6 @@ export const Login = ({ showToast }) => {
     setIsSubmittingSupport(true);
 
     try {
-      // REAL API CALL targeting the public endpoint
       await API.post("/support-tickets", {
         email: supportEmail,
         message: supportMessage,
@@ -262,14 +272,37 @@ export const Login = ({ showToast }) => {
               </div>
               <div>
                 <label style={fieldLabel}>{t("login.password_label")}</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={fieldInput}
-                />
+                <div style={{ position: "relative" }}>
+                  {" "}
+                  {/* Wrapper for absolute positioning */}
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    style={{ ...fieldInput, paddingRight: "2.5rem" }} // Add padding for icon
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "0.75rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: T.textDim,
+                      cursor: "pointer",
+                      padding: 0,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -334,7 +367,7 @@ export const Login = ({ showToast }) => {
         )}
       </div>
 
-      {/* Interactive Support Modal - Wider & Bilingual */}
+      {/* Interactive Support Modal */}
       {showSupportModal && (
         <div
           style={{

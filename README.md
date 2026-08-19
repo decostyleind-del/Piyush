@@ -72,7 +72,9 @@ npm install
 npm run dev       # http://localhost:5173
 ```
 
-If your API isn't on `http://localhost:5000/api`, create `frontend/.env` with:
+If your API isn't on `
+
+/api`, create `frontend/.env` with:
 ```
 VITE_API_URL=http://your-api-url/api
 ```

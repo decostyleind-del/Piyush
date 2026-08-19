@@ -17,9 +17,7 @@ import {
   Send,
 } from "lucide-react";
 
-/* "Personnel Ledger" token system — orange accent to match the
-   employee dashboard / brand palette. Keep HR/HOD dashboards in
-   sync if you tweak this. */
+/* "Personnel Ledger" token system */
 const T = {
   ink: "#0c1120",
   panel: "#141b2c",
@@ -80,9 +78,6 @@ const StatusStamp = ({ status }) => {
   );
 };
 
-// Proof column cell — mirrors the one in HRDashboard so Admin sees
-// the same "Request document" / "Waiting on employee" / "N files —
-// Review" states.
 const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
   const proof = leave.proof || { status: "None" };
 
@@ -149,7 +144,6 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
     );
   }
 
-  // status === "None"
   return (
     <button
       onClick={() => onAskForDocument(leave)}
@@ -173,7 +167,6 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
   );
 };
 
-/* Summary stat card — matches EmployeeDashboard's cards */
 const StatCard = ({ icon: Icon, value, label, color, bg }) => (
   <div
     style={{
@@ -239,11 +232,10 @@ export const AdminDashboard = ({ user, showToast }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
-  // ---- Proof / document workflow state ----
-  const [askDocLeave, setAskDocLeave] = useState(null); // leave currently being asked for a doc
+  const [askDocLeave, setAskDocLeave] = useState(null);
   const [remarkInput, setRemarkInput] = useState("");
   const [requestingProof, setRequestingProof] = useState(false);
-  const [viewDocsLeave, setViewDocsLeave] = useState(null); // leave whose submitted docs we're viewing
+  const [viewDocsLeave, setViewDocsLeave] = useState(null);
 
   const fetchLeaves = async () => {
     try {
@@ -299,8 +291,6 @@ export const AdminDashboard = ({ user, showToast }) => {
       });
     }
   };
-
-  // ---- Proof / document workflow handlers ----
 
   const handleSubmitProofRequest = async () => {
     if (!askDocLeave) return;
@@ -461,8 +451,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginTop: "0.75rem",
               }}
             >
-              Full visibility across every leave request. Decisions here
-              override any prior review.
+              Full visibility across every leave request.
             </p>
           </div>
           <div
@@ -667,7 +656,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                       fontWeight: 700,
                     }}
                   >
-                    Override
+                    Action
                   </th>
                 </tr>
               </thead>
@@ -707,6 +696,10 @@ export const AdminDashboard = ({ user, showToast }) => {
                   paginatedLeaves.map((l) => {
                     const isLongReason = l.reason && l.reason.length > 30;
                     const isBusy = !!pendingIds[l._id];
+
+                    // Logic to determine if buttons should be hidden
+                    const isProcessed =
+                      l.status === "Approved" || l.status === "Rejected";
 
                     return (
                       <tr
@@ -817,52 +810,71 @@ export const AdminDashboard = ({ user, showToast }) => {
                             textAlign: "right",
                           }}
                         >
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "0.55rem",
-                              justifyContent: "flex-end",
-                            }}
-                          >
-                            <button
-                              disabled={isBusy}
-                              onClick={() => handleAction(l._id, "Approved")}
+                          {!isProcessed ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "0.55rem",
+                                justifyContent: "flex-end",
+                              }}
+                            >
+                              <button
+                                disabled={isBusy}
+                                onClick={() => handleAction(l._id, "Approved")}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "0.35rem",
+                                  padding: "0.5rem 0.95rem",
+                                  borderRadius: "7px",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 700,
+                                  background: T.sageDim,
+                                  color: T.sage,
+                                  border: `1px solid ${T.sage}55`,
+                                  cursor: isBusy ? "default" : "pointer",
+                                }}
+                              >
+                                <CheckCircle2 size={14} /> Approve
+                              </button>
+                              <button
+                                disabled={isBusy}
+                                onClick={() => handleAction(l._id, "Rejected")}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "0.35rem",
+                                  padding: "0.5rem 0.95rem",
+                                  borderRadius: "7px",
+                                  fontSize: "0.78rem",
+                                  fontWeight: 700,
+                                  background: T.brickDim,
+                                  color: T.brick,
+                                  border: `1px solid ${T.brick}55`,
+                                  cursor: isBusy ? "default" : "pointer",
+                                }}
+                              >
+                                <XCircle size={14} /> Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span
                               style={{
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: "0.35rem",
-                                padding: "0.5rem 0.95rem",
-                                borderRadius: "7px",
-                                fontSize: "0.78rem",
-                                fontWeight: 700,
-                                background: T.sageDim,
-                                color: T.sage,
-                                border: `1px solid ${T.sage}55`,
-                                cursor: isBusy ? "default" : "pointer",
+                                padding: "0.4rem 0.8rem",
+                                background: T.panelRaised,
+                                color: T.textDim,
+                                borderRadius: "5px",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                letterSpacing: "0.04em",
+                                border: `1px solid ${T.hairlineStrong}`,
                               }}
                             >
-                              <CheckCircle2 size={14} /> Approve
-                            </button>
-                            <button
-                              disabled={isBusy}
-                              onClick={() => handleAction(l._id, "Rejected")}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "0.35rem",
-                                padding: "0.5rem 0.95rem",
-                                borderRadius: "7px",
-                                fontSize: "0.78rem",
-                                fontWeight: 700,
-                                background: T.brickDim,
-                                color: T.brick,
-                                border: `1px solid ${T.brick}55`,
-                                cursor: isBusy ? "default" : "pointer",
-                              }}
-                            >
-                              <XCircle size={14} /> Reject
-                            </button>
-                          </div>
+                              DONE
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
