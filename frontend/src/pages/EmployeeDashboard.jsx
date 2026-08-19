@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
 import { LeaveModal } from "../components/LeaveModal";
-import { ProofUploadModal } from "../components/ProofUploadModal";
+import { ProofUploadModal } from "../components/ProofuploadModal";
 import {
   PlusCircle,
   ClipboardList,
