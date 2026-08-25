@@ -62,18 +62,42 @@
       "approved_by": "by",
       "casual": "Casual Leave",
       "sick": "Sick Leave",
-      "earned": "Earned Leave"
+      "earned": "Earned Leave",
+      "hourly": "HOURLY"
     },
     "modal": {
       "title": "Apply for Leave",
+      "submit_app": "Submit Application",
+      "standard_leave": "Standard Leave",
+      "application_tab": "Application (OD/WFH/Time)",
+      "request_type": "REQUEST TYPE",
+      "date": "DATE",
+      "start_date": "START DATE",
+      "end_date": "END DATE",
+      "start_time": "START TIME",
+      "end_time": "END TIME",
+      "arrived_at": "ARRIVED AT",
+      "leaving_at": "LEAVING AT",
+      "reason_details": "REASON / DETAILS",
+      "specify_details": "PLEASE SPECIFY DETAILS",
       "leave_type": "LEAVE TYPE",
       "casual": "Casual Leave",
       "sick": "Sick Leave",
       "earned": "Earned Leave",
+      "od": "Out of Duty (OD)",
+      "wfh": "Work From Home (WFH)",
+      "travel": "Travel & Tour",
+      "early_leaving": "Early Leaving",
+      "late_coming": "Late Coming",
+      "lih": "Loss in Hour (LIH)",
       "reason_label": "REASON FOR LEAVE",
       "select_reason": "Select a reason...",
+      "optional_time_hint": "Times are optional for multi-day trips. Leave blank for full days.",
+      "placeholder_mumbai": "e.g., Going to Mumbai office...",
+      "placeholder_reason": "Type your reason here...",
       "cancel": "Cancel",
-      "submit": "Submit Request"
+      "submit": "Submit Request",
+      "submitting": "Submitting..."
     },
     "prerequisite": {
       "title": "Pre-requisite Check",
@@ -112,6 +136,34 @@
     },
     "errors": {
       "load_fail": "Failed to load leaves"
+    },
+    "admin": {
+      "tag": "Administrator",
+      "title": "Master Register",
+      "desc": "Full visibility across every leave request. Decisions here are final."
+    },
+    "hod": {
+      "tag": "Head of Department",
+      "title": "Department Register",
+      "desc_start": "Leave requests from",
+      "desc_end": ", awaiting your review."
+    },
+    "stats": {
+      "total": "Total Requests"
+    },
+    "table_extra": {
+      "employee": "Employee",
+      "category": "Category",
+      "reviewed_by": "Reviewed by",
+      "action": "Action",
+      "search": "Search by employee, code, department, type, or reason...",
+      "read_more": "Read more",
+      "approve": "Approve",
+      "reject": "Reject",
+      "done": "DONE",
+      "showing": "Showing",
+      "of": "of",
+      "records": "records shown"
     }
   }
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   XCircle,
@@ -17,7 +18,6 @@ import {
   Send,
 } from "lucide-react";
 
-/* "Personnel Ledger" token system */
 const T = {
   ink: "#0c1120",
   panel: "#141b2c",
@@ -37,14 +37,36 @@ const T = {
 
 const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif:wght@500;600;700&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap');`;
 
+// ---- TIME CALCULATION HELPERS ----
+const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":");
+  const hours = parseInt(h, 10);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${m} ${suffix}`;
+};
+
+const calcDuration = (start, end) => {
+  if (!start || !end) return "";
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let diff = eh * 60 + em - (sh * 60 + sm);
+  if (diff <= 0) return "—";
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  if (h === 0) return `${m} mins`;
+  return m > 0 ? `${h}h ${m}m` : `${h} hrs`;
+};
+
 const STATUS_FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
-const StatusStamp = ({ status }) => {
+const StatusStamp = ({ status, label }) => {
   const cfg = {
-    Approved: { color: T.sage, bg: T.sageDim, label: "Approved" },
-    Rejected: { color: T.brick, bg: T.brickDim, label: "Rejected" },
-    Pending: { color: T.orange, bg: T.orangeDim, label: "Pending" },
-  }[status] || { color: T.orange, bg: T.orangeDim, label: status };
+    Approved: { color: T.sage, bg: T.sageDim },
+    Rejected: { color: T.brick, bg: T.brickDim },
+    Pending: { color: T.orange, bg: T.orangeDim },
+  }[status] || { color: T.orange, bg: T.orangeDim };
 
   return (
     <span
@@ -73,12 +95,12 @@ const StatusStamp = ({ status }) => {
           flexShrink: 0,
         }}
       />
-      {cfg.label}
+      {label || status}
     </span>
   );
 };
 
-const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
+const ProofCell = ({ leave, onAskForDocument, onViewDocuments, isHindi }) => {
   const proof = leave.proof || { status: "None" };
 
   if (proof.status === "Submitted") {
@@ -100,8 +122,8 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
           whiteSpace: "nowrap",
         }}
       >
-        <Paperclip size={13} /> {proof.files?.length || 0} file
-        {proof.files?.length === 1 ? "" : "s"} — Review
+        <Paperclip size={13} /> {proof.files?.length || 0}{" "}
+        {isHindi ? "फ़ाइलें — देखें" : "files — Review"}
       </button>
     );
   }
@@ -127,7 +149,8 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
             color: T.orange,
           }}
         >
-          <Clock size={12} /> Waiting on employee
+          <Clock size={12} />{" "}
+          {isHindi ? "कर्मचारी की प्रतीक्षा में" : "Waiting on employee"}
         </span>
         <span
           style={{
@@ -162,7 +185,7 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
         whiteSpace: "nowrap",
       }}
     >
-      <FileText size={13} /> Request document
+      <FileText size={13} /> {isHindi ? "दस्तावेज़ माँगें" : "Request document"}
     </button>
   );
 };
@@ -222,6 +245,9 @@ const StatCard = ({ icon: Icon, value, label, color, bg }) => (
 );
 
 export const AdminDashboard = ({ user, showToast }) => {
+  const { i18n } = useTranslation();
+  const isHindi = i18n.language && i18n.language.startsWith("hi");
+
   const [leaves, setLeaves] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [selectedReason, setSelectedReason] = useState(null);
@@ -242,7 +268,10 @@ export const AdminDashboard = ({ user, showToast }) => {
       const { data } = await API.get("/leaves?role=Admin");
       setLeaves(data);
     } catch (err) {
-      showToast("Failed to load leaves", "error");
+      showToast(
+        isHindi ? "लोड करने में विफल" : "Failed to load leaves",
+        "error",
+      );
     } finally {
       setInitialLoading(false);
     }
@@ -261,7 +290,6 @@ export const AdminDashboard = ({ user, showToast }) => {
       approvedByRole: "Admin",
       adminOverridden: true,
     };
-
     setLeaves((curr) => curr.map((l) => (l._id === id ? optimisticRecord : l)));
     setPendingIds((curr) => ({ ...curr, [id]: true }));
 
@@ -271,18 +299,19 @@ export const AdminDashboard = ({ user, showToast }) => {
         name: user.name,
         action,
       });
-      if (data?.leave) {
+      if (data?.leave)
         setLeaves((curr) =>
           curr.map((l) => (l._id === id ? { ...l, ...data.leave } : l)),
         );
-      }
       showToast(
-        `Leave request ${action.toLowerCase()} successfully`,
+        isHindi
+          ? "सफलतापूर्वक अद्यतित किया गया"
+          : `Leave request ${action.toLowerCase()} successfully`,
         "success",
       );
     } catch (err) {
       setLeaves(previous);
-      showToast("Failed to update status", "error");
+      showToast(isHindi ? "विफल रहा" : "Failed to update status", "error");
     } finally {
       setPendingIds((curr) => {
         const next = { ...curr };
@@ -294,33 +323,37 @@ export const AdminDashboard = ({ user, showToast }) => {
 
   const handleSubmitProofRequest = async () => {
     if (!askDocLeave) return;
-    if (!remarkInput.trim()) {
-      showToast("Please describe what document is needed", "error");
-      return;
-    }
+    if (!remarkInput.trim())
+      return showToast(
+        isHindi
+          ? "कृपया विवरण स्पष्ट करें"
+          : "Please describe what document is needed",
+        "error",
+      );
     setRequestingProof(true);
     try {
       const { data } = await API.put(
         `/leaves/${askDocLeave._id}/request-proof`,
-        {
-          role: "Admin",
-          name: user.name,
-          remark: remarkInput.trim(),
-        },
+        { role: "Admin", name: user.name, remark: remarkInput.trim() },
       );
-      if (data?.leave) {
+      if (data?.leave)
         setLeaves((curr) =>
           curr.map((l) =>
             l._id === askDocLeave._id ? { ...l, ...data.leave } : l,
           ),
         );
-      }
-      showToast("Document request sent to employee", "success");
+      showToast(
+        isHindi
+          ? "कर्मचारी को अनुरोध भेजा गया"
+          : "Document request sent to employee",
+        "success",
+      );
       setAskDocLeave(null);
       setRemarkInput("");
     } catch (err) {
       showToast(
-        err.response?.data?.message || "Failed to send request",
+        err.response?.data?.message ||
+          (isHindi ? "विफल रहा" : "Failed to send request"),
         "error",
       );
     } finally {
@@ -329,24 +362,22 @@ export const AdminDashboard = ({ user, showToast }) => {
   };
 
   const stats = useMemo(() => {
-    const total = leaves.length;
-    const pending = leaves.filter((l) => l.status === "Pending").length;
-    const approved = leaves.filter((l) => l.status === "Approved").length;
-    const rejected = leaves.filter((l) => l.status === "Rejected").length;
-    return { total, pending, approved, rejected };
+    return {
+      total: leaves.length,
+      pending: leaves.filter((l) => l.status === "Pending").length,
+      approved: leaves.filter((l) => l.status === "Approved").length,
+      rejected: leaves.filter((l) => l.status === "Rejected").length,
+    };
   }, [leaves]);
 
   const filteredLeaves = useMemo(() => {
     let result = leaves;
-
-    if (statusFilter !== "All") {
+    if (statusFilter !== "All")
       result = result.filter((l) => l.status === statusFilter);
-    }
-
     const q = searchTerm.trim().toLowerCase();
     if (q) {
-      result = result.filter((l) => {
-        const haystack = [
+      result = result.filter((l) =>
+        [
           l.employee?.name,
           l.employee?.employeeCode,
           l.employee?.department,
@@ -355,11 +386,10 @@ export const AdminDashboard = ({ user, showToast }) => {
         ]
           .filter(Boolean)
           .join(" ")
-          .toLowerCase();
-        return haystack.includes(q);
-      });
+          .toLowerCase()
+          .includes(q),
+      );
     }
-
     return result;
   }, [leaves, searchTerm, statusFilter]);
 
@@ -376,10 +406,20 @@ export const AdminDashboard = ({ user, showToast }) => {
     1,
     Math.ceil(filteredLeaves.length / rowsPerPage),
   );
-  const paginatedLeaves = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return filteredLeaves.slice(start, start + rowsPerPage);
-  }, [filteredLeaves, currentPage]);
+  const paginatedLeaves = useMemo(
+    () =>
+      filteredLeaves.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage,
+      ),
+    [filteredLeaves, currentPage],
+  );
+
+  const getStatusLabel = (status) => {
+    if (status === "Approved") return isHindi ? "स्वीकृत" : "Approved";
+    if (status === "Rejected") return isHindi ? "अस्वीकृत" : "Rejected";
+    return isHindi ? "लंबित" : "Pending";
+  };
 
   if (!user) return null;
 
@@ -402,7 +442,6 @@ export const AdminDashboard = ({ user, showToast }) => {
           fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
         }}
       >
-        {/* Header */}
         <div
           style={{
             display: "flex",
@@ -429,8 +468,8 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginBottom: "0.85rem",
               }}
             >
-              <ShieldCheck size={18} strokeWidth={2.5} />
-              Administrator
+              <ShieldCheck size={18} strokeWidth={2.5} />{" "}
+              {isHindi ? "व्यवस्थापक (Admin)" : "Administrator"}
             </div>
             <h1
               style={{
@@ -442,7 +481,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                 lineHeight: 1.1,
               }}
             >
-              Master Register
+              {isHindi ? "मास्टर रजिस्टर" : "Master Register"}
             </h1>
             <p
               style={{
@@ -451,7 +490,9 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginTop: "0.75rem",
               }}
             >
-              Full visibility across every leave request.
+              {isHindi
+                ? "हर छुट्टी अनुरोध पर पूर्ण दृश्यता। यहाँ लिए गए निर्णय अंतिम हैं।"
+                : "Full visibility across every leave request. Decisions here are final."}
             </p>
           </div>
           <div
@@ -462,12 +503,11 @@ export const AdminDashboard = ({ user, showToast }) => {
               fontStyle: "italic",
             }}
           >
-            {filteredLeaves.length} of {leaves.length} record
-            {leaves.length !== 1 ? "s" : ""} shown
+            {filteredLeaves.length} {isHindi ? "में से" : "of"} {leaves.length}{" "}
+            {isHindi ? "रिकॉर्ड दिखाए गए" : "records shown"}
           </div>
         </div>
 
-        {/* Summary stat cards */}
         <div
           style={{
             display: "grid",
@@ -479,34 +519,33 @@ export const AdminDashboard = ({ user, showToast }) => {
           <StatCard
             icon={ListChecks}
             value={stats.total}
-            label="Total Requests"
+            label={isHindi ? "कुल अनुरोध" : "Total Requests"}
             color={T.text}
             bg="rgba(236,231,217,0.1)"
           />
           <StatCard
             icon={Clock}
             value={stats.pending}
-            label="Pending"
+            label={isHindi ? "लंबित" : "Pending"}
             color={T.orange}
             bg={T.orangeDim}
           />
           <StatCard
             icon={CheckCircle2}
             value={stats.approved}
-            label="Approved"
+            label={isHindi ? "स्वीकृत" : "Approved"}
             color={T.sage}
             bg={T.sageDim}
           />
           <StatCard
             icon={XCircle}
             value={stats.rejected}
-            label="Rejected"
+            label={isHindi ? "अस्वीकृत" : "Rejected"}
             color={T.brick}
             bg={T.brickDim}
           />
         </div>
 
-        {/* Search + status filter toolbar */}
         <div
           style={{
             display: "flex",
@@ -537,7 +576,11 @@ export const AdminDashboard = ({ user, showToast }) => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by employee, code, department, type, or reason…"
+              placeholder={
+                isHindi
+                  ? "कर्मचारी, कोड, विभाग, प्रकार या कारण से खोजें..."
+                  : "Search by employee, code, department, type, or reason…"
+              }
               style={{
                 width: "100%",
                 padding: "0.85rem 1rem 0.85rem 2.75rem",
@@ -565,40 +608,44 @@ export const AdminDashboard = ({ user, showToast }) => {
               border: `1px solid ${T.hairline}`,
             }}
           >
-            {STATUS_FILTERS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusFilter(s)}
-                style={{
-                  padding: "0.65rem 1.1rem",
-                  borderRadius: "7px",
-                  border: "none",
-                  background:
-                    statusFilter === s
-                      ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
-                      : "transparent",
-                  color: statusFilter === s ? "#fff" : T.textDim,
-                  fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
-                  fontWeight: 700,
-                  fontSize: "0.78rem",
-                  letterSpacing: "0.03em",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  boxShadow:
-                    statusFilter === s
-                      ? "0 4px 14px rgba(249,115,22,0.3)"
-                      : "none",
-                  transition: "all 0.2s",
-                }}
-              >
-                {s}
-              </button>
-            ))}
+            {STATUS_FILTERS.map((s) => {
+              const label =
+                s === "All" ? (isHindi ? "सभी" : "All") : getStatusLabel(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s)}
+                  style={{
+                    padding: "0.65rem 1.1rem",
+                    borderRadius: "7px",
+                    border: "none",
+                    background:
+                      statusFilter === s
+                        ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
+                        : "transparent",
+                    color: statusFilter === s ? "#fff" : T.textDim,
+                    fontFamily:
+                      "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
+                    fontWeight: 700,
+                    fontSize: "0.78rem",
+                    letterSpacing: "0.03em",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    boxShadow:
+                      statusFilter === s
+                        ? "0 4px 14px rgba(249,115,22,0.3)"
+                        : "none",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Table */}
         <div
           style={{
             background: T.panel,
@@ -629,25 +676,25 @@ export const AdminDashboard = ({ user, showToast }) => {
                   }}
                 >
                   <th style={{ padding: "1.3rem 1.75rem", fontWeight: 700 }}>
-                    Employee
+                    {isHindi ? "कर्मचारी" : "Employee"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Category
+                    {isHindi ? "श्रेणी" : "Category"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Dates
+                    {isHindi ? "तिथियां" : "Dates"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Reason
+                    {isHindi ? "कारण" : "Reason"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Status
+                    {isHindi ? "स्थिति" : "Status"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Proof
+                    {isHindi ? "दस्तावेज़" : "Proof"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Reviewed by
+                    {isHindi ? "समीक्षक" : "Reviewed by"}
                   </th>
                   <th
                     style={{
@@ -656,7 +703,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                       fontWeight: 700,
                     }}
                   >
-                    Action
+                    {isHindi ? "कार्रवाई" : "Action"}
                   </th>
                 </tr>
               </thead>
@@ -671,7 +718,9 @@ export const AdminDashboard = ({ user, showToast }) => {
                         color: T.textDim,
                       }}
                     >
-                      Loading register…
+                      {isHindi
+                        ? "रजिस्टर लोड हो रहा है..."
+                        : "Loading register…"}
                     </td>
                   </tr>
                 ) : filteredLeaves.length === 0 ? (
@@ -687,19 +736,24 @@ export const AdminDashboard = ({ user, showToast }) => {
                       />
                       <div style={{ color: T.textDim, fontSize: "1.05rem" }}>
                         {leaves.length === 0
-                          ? "System master log empty."
-                          : "No records match your search."}
+                          ? isHindi
+                            ? "सिस्टम मास्टर लॉग खाली है।"
+                            : "System master log empty."
+                          : isHindi
+                            ? "कोई रिकॉर्ड नहीं मिला।"
+                            : "No records match your search."}
                       </div>
                     </td>
                   </tr>
                 ) : (
                   paginatedLeaves.map((l) => {
-                    const isLongReason = l.reason && l.reason.length > 30;
-                    const isBusy = !!pendingIds[l._id];
-
-                    // Logic to determine if buttons should be hidden
                     const isProcessed =
                       l.status === "Approved" || l.status === "Rejected";
+                    const isLongReason = l.reason && l.reason.length > 30;
+                    const isBusy = !!pendingIds[l._id];
+                    const isSingleDay =
+                      new Date(l.startDate).getTime() ===
+                      new Date(l.endDate).getTime();
 
                     return (
                       <tr
@@ -743,12 +797,77 @@ export const AdminDashboard = ({ user, showToast }) => {
                         <td
                           style={{
                             padding: "1.35rem 1rem",
-                            color: T.textDim,
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {new Date(l.startDate).toLocaleDateString()} →{" "}
-                          {new Date(l.endDate).toLocaleDateString()}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.3rem",
+                            }}
+                          >
+                            <span
+                              style={{ color: T.textDim, fontSize: "0.95rem" }}
+                            >
+                              {new Date(l.startDate).toLocaleDateString()}
+                              {!isSingleDay &&
+                                ` → ${new Date(l.endDate).toLocaleDateString()}`}
+                            </span>
+                            {(l.startTime || l.endTime) && (
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.4rem",
+                                  fontSize: "0.8rem",
+                                  color: T.orange,
+                                  marginTop: "2px",
+                                }}
+                              >
+                                <Clock size={13} strokeWidth={2.5} />
+                                <span>
+                                  {l.endTime ? (
+                                    <>
+                                      <strong
+                                        style={{
+                                          color: "#ece7d9",
+                                          fontSize: "0.85rem",
+                                          marginRight: "4px",
+                                        }}
+                                      >
+                                        {calcDuration(l.startTime, l.endTime)}
+                                      </strong>
+                                      ({formatTime(l.startTime)} -{" "}
+                                      {formatTime(l.endTime)})
+                                    </>
+                                  ) : (
+                                    <strong
+                                      style={{
+                                        color: "#ece7d9",
+                                        fontSize: "0.85rem",
+                                      }}
+                                    >
+                                      {formatTime(l.startTime)}
+                                    </strong>
+                                  )}
+                                </span>
+                                <span
+                                  style={{
+                                    marginLeft: "4px",
+                                    background: T.orangeDim,
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontSize: "0.65rem",
+                                    fontWeight: "bold",
+                                    letterSpacing: "0.05em",
+                                  }}
+                                >
+                                  {isHindi ? "घंटे के अनुसार" : "HOURLY"}
+                                </span>
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td
                           style={{
@@ -776,16 +895,20 @@ export const AdminDashboard = ({ user, showToast }) => {
                                 padding: 0,
                               }}
                             >
-                              Read more
+                              {isHindi ? "और पढ़ें" : "Read more"}
                             </button>
                           )}
                         </td>
                         <td style={{ padding: "1.35rem 1rem" }}>
-                          <StatusStamp status={l.status} />
+                          <StatusStamp
+                            status={l.status}
+                            label={getStatusLabel(l.status)}
+                          />
                         </td>
                         <td style={{ padding: "1.35rem 1rem" }}>
                           <ProofCell
                             leave={l}
+                            isHindi={isHindi}
                             onAskForDocument={(leave) => {
                               setAskDocLeave(leave);
                               setRemarkInput("");
@@ -835,7 +958,8 @@ export const AdminDashboard = ({ user, showToast }) => {
                                   cursor: isBusy ? "default" : "pointer",
                                 }}
                               >
-                                <CheckCircle2 size={14} /> Approve
+                                <CheckCircle2 size={14} />{" "}
+                                {isHindi ? "स्वीकार करें" : "Approve"}
                               </button>
                               <button
                                 disabled={isBusy}
@@ -854,7 +978,8 @@ export const AdminDashboard = ({ user, showToast }) => {
                                   cursor: isBusy ? "default" : "pointer",
                                 }}
                               >
-                                <XCircle size={14} /> Reject
+                                <XCircle size={14} />{" "}
+                                {isHindi ? "अस्वीकार करें" : "Reject"}
                               </button>
                             </div>
                           ) : (
@@ -872,7 +997,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                                 border: `1px solid ${T.hairlineStrong}`,
                               }}
                             >
-                              DONE
+                              {isHindi ? "पूर्ण" : "DONE"}
                             </span>
                           )}
                         </td>
@@ -884,7 +1009,6 @@ export const AdminDashboard = ({ user, showToast }) => {
             </table>
           </div>
 
-          {/* Pagination bar */}
           {!initialLoading && filteredLeaves.length > 0 && (
             <div
               style={{
@@ -898,9 +1022,9 @@ export const AdminDashboard = ({ user, showToast }) => {
               }}
             >
               <div style={{ color: T.textDim, fontSize: "0.9rem" }}>
-                Showing {(currentPage - 1) * rowsPerPage + 1}–
-                {Math.min(currentPage * rowsPerPage, filteredLeaves.length)} of{" "}
-                {filteredLeaves.length}
+                {isHindi
+                  ? `कुल ${filteredLeaves.length} में से ${(currentPage - 1) * rowsPerPage + 1}–${Math.min(currentPage * rowsPerPage, filteredLeaves.length)} दिखा रहे हैं`
+                  : `Showing ${(currentPage - 1) * rowsPerPage + 1}–${Math.min(currentPage * rowsPerPage, filteredLeaves.length)} of ${filteredLeaves.length}`}
               </div>
 
               <div
@@ -922,11 +1046,9 @@ export const AdminDashboard = ({ user, showToast }) => {
                     cursor: currentPage === 1 ? "not-allowed" : "pointer",
                     opacity: currentPage === 1 ? 0.5 : 1,
                   }}
-                  aria-label="Previous page"
                 >
                   <ChevronLeft size={18} />
                 </button>
-
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                   (page) => (
                     <button
@@ -959,7 +1081,6 @@ export const AdminDashboard = ({ user, showToast }) => {
                     </button>
                   ),
                 )}
-
                 <button
                   onClick={() =>
                     setCurrentPage((p) => Math.min(totalPages, p + 1))
@@ -979,7 +1100,6 @@ export const AdminDashboard = ({ user, showToast }) => {
                       currentPage === totalPages ? "not-allowed" : "pointer",
                     opacity: currentPage === totalPages ? 0.5 : 1,
                   }}
-                  aria-label="Next page"
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -1038,7 +1158,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginBottom: "1rem",
               }}
             >
-              Full justification
+              {isHindi ? "पूर्ण विवरण" : "Full justification"}
             </h3>
             <p
               style={{
@@ -1057,7 +1177,6 @@ export const AdminDashboard = ({ user, showToast }) => {
         </div>
       )}
 
-      {/* ==================== ASK FOR DOCUMENT MODAL ==================== */}
       {askDocLeave && (
         <div
           style={{
@@ -1107,7 +1226,9 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginBottom: "0.4rem",
               }}
             >
-              Request a supporting document
+              {isHindi
+                ? "सहायक दस्तावेज़ का अनुरोध करें"
+                : "Request a supporting document"}
             </h3>
             <p
               style={{
@@ -1129,12 +1250,18 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginBottom: "0.5rem",
               }}
             >
-              What do you need from them?
+              {isHindi
+                ? "आपको उनसे क्या चाहिए?"
+                : "What do you need from them?"}
             </label>
             <textarea
               value={remarkInput}
               onChange={(e) => setRemarkInput(e.target.value)}
-              placeholder="e.g. Please attach a medical certificate for the sick days claimed"
+              placeholder={
+                isHindi
+                  ? "उदा., कृपया मेडिकल सर्टिफिकेट संलग्न करें..."
+                  : "e.g. Please attach a medical certificate..."
+              }
               rows={3}
               style={{
                 width: "100%",
@@ -1172,7 +1299,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                   cursor: "pointer",
                 }}
               >
-                Cancel
+                {isHindi ? "रद्द करें" : "Cancel"}
               </button>
               <button
                 onClick={handleSubmitProofRequest}
@@ -1193,14 +1320,19 @@ export const AdminDashboard = ({ user, showToast }) => {
                 }}
               >
                 <Send size={14} />
-                {requestingProof ? "Sending…" : "Send request"}
+                {requestingProof
+                  ? isHindi
+                    ? "भेजा जा रहा है..."
+                    : "Sending..."
+                  : isHindi
+                    ? "अनुरोध भेजें"
+                    : "Send request"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ==================== VIEW SUBMITTED DOCUMENTS MODAL ==================== */}
       {viewDocsLeave && (
         <div
           style={{
@@ -1250,7 +1382,7 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginBottom: "0.4rem",
               }}
             >
-              Submitted documents
+              {isHindi ? "सबमिट किए गए दस्तावेज़" : "Submitted documents"}
             </h3>
             <p
               style={{
@@ -1272,7 +1404,9 @@ export const AdminDashboard = ({ user, showToast }) => {
                 marginBottom: "1.25rem",
               }}
             >
-              <strong style={{ color: T.textDim }}>Requested:</strong>{" "}
+              <strong style={{ color: T.textDim }}>
+                {isHindi ? "अनुरोध किया गया:" : "Requested:"}
+              </strong>{" "}
               {viewDocsLeave.proof?.remark}
             </div>
             <div
@@ -1328,7 +1462,7 @@ export const AdminDashboard = ({ user, showToast }) => {
               {(!viewDocsLeave.proof?.files ||
                 viewDocsLeave.proof.files.length === 0) && (
                 <p style={{ color: T.textDim, fontSize: "0.85rem" }}>
-                  No files found.
+                  {isHindi ? "कोई फ़ाइल नहीं मिली।" : "No files found."}
                 </p>
               )}
             </div>

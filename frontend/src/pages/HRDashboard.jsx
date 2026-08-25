@@ -38,6 +38,28 @@ const T = {
 
 const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif:wght@500;600;700&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap');`;
 
+// ---- TIME CALCULATION HELPERS ----
+const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":");
+  const hours = parseInt(h, 10);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${m} ${suffix}`;
+};
+
+const calcDuration = (start, end) => {
+  if (!start || !end) return "";
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let diff = eh * 60 + em - (sh * 60 + sm);
+  if (diff <= 0) return "—";
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  if (h === 0) return `${m} mins`;
+  return m > 0 ? `${h}h ${m}m` : `${h} hrs`;
+};
+
 const STATUS_FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
 const StatusStamp = ({ status }) => {
@@ -79,8 +101,6 @@ const StatusStamp = ({ status }) => {
   );
 };
 
-// Small badge/button that lives in the new "Proof" column.
-// Renders differently depending on proof.status.
 const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
   const proof = leave.proof || { status: "None" };
 
@@ -147,7 +167,6 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
     );
   }
 
-  // status === "None"
   return (
     <button
       onClick={() => onAskForDocument(leave)}
@@ -241,17 +260,15 @@ export const HRDashboard = ({ user, showToast }) => {
   const rowsPerPage = 5;
 
   // ---- Proof / document workflow state ----
-  const [askDocLeave, setAskDocLeave] = useState(null); // leave currently being asked for a doc
+  const [askDocLeave, setAskDocLeave] = useState(null);
   const [remarkInput, setRemarkInput] = useState("");
   const [requestingProof, setRequestingProof] = useState(false);
-  const [viewDocsLeave, setViewDocsLeave] = useState(null); // leave whose submitted docs we're viewing
+  const [viewDocsLeave, setViewDocsLeave] = useState(null);
 
   const fetchData = async () => {
     try {
       try {
         const { data: leavesData } = await API.get("/leaves?role=HR");
-
-        // FIX: Relaxed filter. Only hides records that are completely broken/missing dates.
         const validLeaves = (leavesData || []).filter(
           (l) => l && l.startDate && l.endDate && l.leaveType,
         );
@@ -319,8 +336,6 @@ export const HRDashboard = ({ user, showToast }) => {
       showToast("Failed to resolve ticket", "error");
     }
   };
-
-  // ---- Proof / document workflow handlers ----
 
   const handleSubmitProofRequest = async () => {
     if (!askDocLeave) return;
@@ -817,6 +832,9 @@ export const HRDashboard = ({ user, showToast }) => {
                           l.status === "Approved" || l.status === "Rejected";
                         const isLongReason = l.reason && l.reason.length > 30;
                         const isBusy = !!pendingIds[l._id];
+                        const isSingleDay =
+                          new Date(l.startDate).getTime() ===
+                          new Date(l.endDate).getTime();
 
                         return (
                           <tr
@@ -840,7 +858,6 @@ export const HRDashboard = ({ user, showToast }) => {
                                 fontWeight: 700,
                               }}
                             >
-                              {/* Safely handle missing names so the UI doesn't crash */}
                               {l.employee?.name || "Unknown Employee"}
                               <div
                                 style={{
@@ -862,16 +879,92 @@ export const HRDashboard = ({ user, showToast }) => {
                             >
                               {l.leaveType}
                             </td>
+
+                            {/* ========================================================= */}
+                            {/* TOTAL HOUR CALCULATOR & TIME DISPLAY UI                     */}
+                            {/* ========================================================= */}
                             <td
                               style={{
                                 padding: "1.35rem 1rem",
-                                color: T.textDim,
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {new Date(l.startDate).toLocaleDateString()} →{" "}
-                              {new Date(l.endDate).toLocaleDateString()}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "0.3rem",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    color: T.textDim,
+                                    fontSize: "0.95rem",
+                                  }}
+                                >
+                                  {new Date(l.startDate).toLocaleDateString()}
+                                  {!isSingleDay &&
+                                    ` → ${new Date(l.endDate).toLocaleDateString()}`}
+                                </span>
+                                {(l.startTime || l.endTime) && (
+                                  <span
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.4rem",
+                                      fontSize: "0.8rem",
+                                      color: T.orange,
+                                      marginTop: "2px",
+                                    }}
+                                  >
+                                    <Clock size={13} strokeWidth={2.5} />
+                                    <span>
+                                      {l.endTime ? (
+                                        <>
+                                          <strong
+                                            style={{
+                                              color: "#ece7d9",
+                                              fontSize: "0.85rem",
+                                              marginRight: "4px",
+                                            }}
+                                          >
+                                            {calcDuration(
+                                              l.startTime,
+                                              l.endTime,
+                                            )}
+                                          </strong>
+                                          ({formatTime(l.startTime)} -{" "}
+                                          {formatTime(l.endTime)})
+                                        </>
+                                      ) : (
+                                        <strong
+                                          style={{
+                                            color: "#ece7d9",
+                                            fontSize: "0.85rem",
+                                          }}
+                                        >
+                                          {formatTime(l.startTime)}
+                                        </strong>
+                                      )}
+                                    </span>
+                                    <span
+                                      style={{
+                                        marginLeft: "4px",
+                                        background: T.orangeDim,
+                                        padding: "2px 6px",
+                                        borderRadius: "4px",
+                                        fontSize: "0.65rem",
+                                        fontWeight: "bold",
+                                        letterSpacing: "0.05em",
+                                      }}
+                                    >
+                                      HOURLY
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
                             </td>
+
                             <td
                               style={{
                                 padding: "1.35rem 1rem",
@@ -1118,6 +1211,7 @@ export const HRDashboard = ({ user, showToast }) => {
           </>
         )}
 
+        {/* ... SUPPORT TAB REMAINS COMPLETELY UNCHANGED ... */}
         {activeTab === "support" && (
           <div
             style={{

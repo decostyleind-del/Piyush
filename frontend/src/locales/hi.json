@@ -60,20 +60,44 @@
       "approved": "स्वीकृत",
       "rejected": "अस्वीकृत",
       "approved_by": "द्वारा",
-      "casual": "आकस्मिक अवकाश (Casual Leave)",
-      "sick": "चिकित्सा अवकाश (Sick Leave)",
-      "earned": "अर्जित अवकाश (Earned Leave)"
+      "casual": "आकस्मिक अवकाश",
+      "sick": "चिकित्सा अवकाश",
+      "earned": "अर्जित अवकाश",
+      "hourly": "घंटे के अनुसार"
     },
     "modal": {
       "title": "छुट्टी के लिए आवेदन करें",
+      "submit_app": "आवेदन जमा करें",
+      "standard_leave": "सामान्य छुट्टी",
+      "application_tab": "आवेदन (OD/WFH/समय)",
+      "request_type": "अनुरोध का प्रकार",
+      "date": "दिनांक",
+      "start_date": "प्रारंभ तिथि",
+      "end_date": "अंतिम तिथि",
+      "start_time": "प्रारंभ समय",
+      "end_time": "समाप्ति समय",
+      "arrived_at": "पहुंचने का समय",
+      "leaving_at": "जाने का समय",
+      "reason_details": "कारण / विवरण",
+      "specify_details": "कृपया विवरण स्पष्ट करें",
       "leave_type": "छुट्टी का प्रकार",
       "casual": "आकस्मिक अवकाश (Casual Leave)",
       "sick": "चिकित्सा अवकाश (Sick Leave)",
       "earned": "अर्जित अवकाश (Earned Leave)",
+      "od": "आउट ऑफ ड्यूटी (OD)",
+      "wfh": "वर्क फ्रॉम होम (WFH)",
+      "travel": "यात्रा और टूर (Travel & Tour)",
+      "early_leaving": "जल्दी जाना (Early Leaving)",
+      "late_coming": "देर से आना (Late Coming)",
+      "lih": "काम के घंटे का नुकसान (LIH)",
       "reason_label": "छुट्टी का कारण",
       "select_reason": "एक कारण चुनें...",
+      "optional_time_hint": "कई दिनों की यात्रा के लिए समय वैकल्पिक है। पूरे दिन के लिए खाली छोड़ दें।",
+      "placeholder_mumbai": "उदा., मुंबई कार्यालय जा रहा हूँ...",
+      "placeholder_reason": "अपना कारण यहाँ लिखें...",
       "cancel": "रद्द करें",
-      "submit": "अनुरोध जमा करें"
+      "submit": "अनुरोध जमा करें",
+      "submitting": "जमा हो रहा है..."
     },
     "prerequisite": {
       "title": "पूर्व-आवश्यकता जाँच",
@@ -112,6 +136,34 @@
     },
     "errors": {
       "load_fail": "पत्तियां लोड करने में विफल"
+    },
+    "admin": {
+      "tag": "व्यवस्थापक (Admin)",
+      "title": "मास्टर रजिस्टर",
+      "desc": "हर छुट्टी अनुरोध पर पूर्ण दृश्यता। यहाँ लिए गए निर्णय अंतिम हैं।"
+    },
+    "hod": {
+      "tag": "विभाग प्रमुख (HOD)",
+      "title": "विभाग रजिस्टर",
+      "desc_start": "",
+      "desc_end": " से छुट्टी के अनुरोध, आपकी समीक्षा की प्रतीक्षा में।"
+    },
+    "stats": {
+      "total": "कुल अनुरोध"
+    },
+    "table_extra": {
+      "employee": "कर्मचारी",
+      "category": "श्रेणी",
+      "reviewed_by": "समीक्षक",
+      "action": "कार्रवाई",
+      "search": "कर्मचारी, कोड, विभाग, प्रकार या कारण से खोजें...",
+      "read_more": "और पढ़ें",
+      "approve": "स्वीकार करें",
+      "reject": "अस्वीकार करें",
+      "done": "पूर्ण (DONE)",
+      "showing": "दिखा रहे हैं",
+      "of": "में से",
+      "records": "रिकॉर्ड दिखाए गए"
     }
   }
 }

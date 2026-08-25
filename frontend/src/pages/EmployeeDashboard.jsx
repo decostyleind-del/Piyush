@@ -78,9 +78,7 @@ const StatusStamp = ({ status, label }) => {
   );
 };
 
-/* Small pill for the Proof column — separate from StatusStamp because
-   the vocabulary/colors differ (Requested = attention/orange,
-   Submitted = sage, none = muted dash). */
+/* Small pill for the Proof column */
 const ProofStamp = ({ status, label }) => {
   const cfg = {
     Requested: { color: T.orange, bg: T.orangeDim },
@@ -178,7 +176,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
-  // Leave whose proof modal is currently open (null = closed)
   const [proofLeave, setProofLeave] = useState(null);
 
   const fetchLeaves = async () => {
@@ -199,7 +196,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
     fetchLeaves();
   }, []);
 
-  // If the underlying data shrinks/grows, keep the current page in range
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(leaves.length / rowsPerPage));
     if (currentPage > maxPage) setCurrentPage(maxPage);
@@ -214,8 +210,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
 
   const isHindi = t("table.type") === "छुट्टी का प्रकार";
 
-  // proof.status labels — mirrors table.approved/rejected/pending pattern.
-  // Falls back to plain English/Hindi if these keys aren't in en.json/hi.json yet.
   const proofLabel = (status) => {
     if (status === "Requested")
       return t(
@@ -398,7 +392,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
             {isHindi ? "छुट्टी का इतिहास" : "Leave History"}
           </div>
 
-          {/* Guaranteed Responsive Scroll Container */}
           <div
             style={{
               width: "100%",
@@ -413,7 +406,7 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                 borderCollapse: "collapse",
                 textAlign: "left",
                 fontSize: "1rem",
-                minWidth: "1080px", // widened to fit the new Proof column
+                minWidth: "1080px",
               }}
             >
               <thead>
@@ -516,7 +509,13 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                   </tr>
                 ) : (
                   paginatedLeaves.map((l) => {
-                    const proofStatus = l.proof?.status; // "Requested" | "Submitted" | undefined
+                    const proofStatus = l.proof?.status;
+
+                    // Logic to see if we should hide the end date
+                    const isSingleDay =
+                      new Date(l.startDate).getTime() ===
+                      new Date(l.endDate).getTime();
+
                     return (
                       <tr
                         key={l._id}
@@ -540,17 +539,67 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                         >
                           {l.leaveType}
                         </td>
+
+                        {/* ========================================================= */}
+                        {/* UPDATED DATES COLUMN WITH OPTIONAL TIME SUPPORT           */}
+                        {/* ========================================================= */}
                         <td
                           style={{
                             padding: "1.75rem 1.25rem",
-                            color: T.textDim,
                             whiteSpace: "nowrap",
-                            fontSize: "1.15rem",
                           }}
                         >
-                          {new Date(l.startDate).toLocaleDateString()} →{" "}
-                          {new Date(l.endDate).toLocaleDateString()}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.3rem",
+                            }}
+                          >
+                            {/* The Date(s) */}
+                            <span
+                              style={{ color: T.textDim, fontSize: "1.15rem" }}
+                            >
+                              {new Date(l.startDate).toLocaleDateString()}
+                              {!isSingleDay &&
+                                ` → ${new Date(l.endDate).toLocaleDateString()}`}
+                            </span>
+
+                            {/* The Time (If provided in database) */}
+                            {(l.startTime || l.endTime) && (
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.35rem",
+                                  fontSize: "0.85rem",
+                                  color: T.orange,
+                                }}
+                              >
+                                <Clock size={12} strokeWidth={2.5} />
+                                <span>
+                                  {l.startTime && l.startTime}
+                                  {l.startTime && l.endTime && " - "}
+                                  {l.endTime && l.endTime}
+                                </span>
+                                <span
+                                  style={{
+                                    marginLeft: "6px",
+                                    background: T.orangeDim,
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontSize: "0.7rem",
+                                    fontWeight: "bold",
+                                    letterSpacing: "0.05em",
+                                  }}
+                                >
+                                  {isHindi ? "घंटे के अनुसार" : "HOURLY"}
+                                </span>
+                              </span>
+                            )}
+                          </div>
                         </td>
+
                         <td
                           style={{
                             padding: "1.75rem 1.25rem",
@@ -583,7 +632,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                                 label={proofLabel(proofStatus)}
                               />
 
-                              {/* Remark from HR/HOD explaining what's needed */}
                               {l.proof?.remark && (
                                 <div
                                   style={{
@@ -597,7 +645,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                                 </div>
                               )}
 
-                              {/* Only actionable while HR/HOD is still waiting on the employee */}
                               {proofStatus === "Requested" && (
                                 <button
                                   onClick={() => setProofLeave(l)}
@@ -748,6 +795,10 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                             ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
                             : T.panelRaised,
                         color: page === currentPage ? "#fff" : T.textDim,
+                        boxShadow:
+                          page === currentPage
+                            ? "0 4px 14px rgba(249,115,22,0.3)"
+                            : "none",
                       }}
                     >
                       {page}
@@ -793,14 +844,6 @@ export const EmployeeDashboard = ({ user, showToast }) => {
         />
       )}
 
-      {/* Proof upload/view modal.
-          Assumed prop contract (adjust to match your actual ProofUploadModal.jsx):
-            leave      -> the full leave doc (has ._id and .proof)
-            user       -> current employee, for auth headers/body as needed
-            onClose    -> close without necessarily refetching
-            onSuccess  -> called after upload / delete / submit-to-review;
-                          triggers fetchLeaves() so the row's proof.status updates
-            showToast  -> reuse existing toast pattern for success/error messages */}
       {proofLeave && (
         <ProofUploadModal
           leave={proofLeave}

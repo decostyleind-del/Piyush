@@ -1,7 +1,7 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { X, Clock, Info } from "lucide-react";
+import API from "../api/axios";
 
-/* Same "Personnel Ledger" token system as the dashboards —
-   keep in sync if you tweak the palette. */
 const T = {
   ink: "#0c1120",
   panel: "#141b2c",
@@ -10,285 +10,437 @@ const T = {
   hairlineStrong: "rgba(232,227,212,0.14)",
   text: "#ece7d9",
   textDim: "#96917f",
-  brass: "#c9a24b",
-  brassDim: "rgba(201,162,75,0.14)",
-  sage: "#7ea08d",
-  brick: "#c06a56",
-  brickDim: "rgba(192,106,86,0.14)",
+  orange: "#f97316",
+  orangeDark: "#ea580c",
+  orangeDim: "rgba(249,115,22,0.14)",
 };
 
-const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif:wght@500;600;700&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap');`;
+const PRESET_REASONS = [
+  "Select a reason...",
+  "Other / अन्य",
+  "Medical Appointment / Doctor Visit (चिकित्सा नियुक्ति / डॉक्टर की यात्रा)",
+  "Fever and Recommended Rest (बुखार और अनुशंसित विश्राम)",
+  "Severe Migraine / Headache (गंभीर माइग्रेन / सिरदर्द)",
+  "Stomach Infection / Food Poisoning (पेट का संक्रमण / फूड पॉइज़निंग)",
+  "Family Function / Wedding Ceremony (पारिवारिक समारोह / विवाह)",
+  "Religious Ceremony / Festival (धार्मिक अनुष्ठान / त्योहार)",
+  "Outstation Travel / Personal Work (आउटस्टेशन यात्रा / व्यक्तिगत कार्य)",
+  "Urgent Domestic Emergency (अत्यावश्यक घरेलू आपातकाल)",
+  "Home Maintenance / Plumbing Repairs (घर का रखरखाव / नलसाजी मरम्मत)",
+  "Childcare / Parent Care Duties (बाल देखभाल / माता-पिता की देखभाल)",
+  "Mental Health Day / Burnout Recovery (मानसिक स्वास्थ्य दिवस / थकान से रिकवरी)",
+  "Legal / Government Documentation Work (कानूनी / सरकारी दस्तावेज़ीकरण कार्य)",
+  "Banking / Financial Property Work (बैंकिंग / वित्तीय संपत्ति कार्य)",
+  "Vehicle Servicing / Accident Repair (वाहन सर्विसिंग / दुर्घटना मरम्मत)",
+  "Moving / Relocating to New House (नए घर में स्थानांतरण / शिफ्टिंग)",
+  "Academic Exam / Professional Certification (शैक्षणिक परीक्षा / व्यावसायिक प्रमाणन)",
+  "Attending Close Relative's Surgery (सगे संबंधी की सर्जरी में शामिल होना)",
+  "Pet Care / Veterinary Emergency (पालतू जानवरों की देखभाल / पशु चिकित्सा आपातकाल)",
+];
 
-/**
- * Two-step popup shown from the Employee Dashboard's "Apply for Leave" button.
- *
- * Step 1: "Have you discussed this leave with your HOD?" Yes / No buttons.
- *   - No  -> blocked with a message, request goes nowhere.
- *   - Yes -> step 2 reveals a reason textarea.
- * Step 2: employee explains why they want leave, then "Continue" hands
- *   { reason } back to the caller, which routes to the Apply Leave page
- *   to finish picking category + dates.
- */
-export default function ApplyLeaveModal({ onClose, onContinue }) {
-  const [step, setStep] = useState("ask"); // "ask" | "blocked" | "reason"
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState("");
+export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
+  const [requestCategory, setRequestCategory] = useState("leave");
+  const [leaveType, setLeaveType] = useState("Casual Leave");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [reason, setReason] = useState("Select a reason...");
+  const [customReason, setCustomReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleContinue = () => {
-    if (!reason.trim()) {
-      setError("Please tell us why you're requesting this leave.");
-      return;
+  useEffect(() => {
+    if (requestCategory === "leave") setLeaveType("Casual Leave");
+    else setLeaveType("Out of Duty (OD)");
+    setStartTime("");
+    setEndTime("");
+  }, [requestCategory]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (reason === "Select a reason...")
+      return showToast("Please select a reason", "error");
+    const finalReason = reason === "Other / अन्य" ? customReason : reason;
+    if (!finalReason.trim())
+      return showToast("Please provide a reason", "error");
+
+    setIsSubmitting(true);
+    try {
+      const isSingleDayApp = [
+        "Early Leaving",
+        "Late Coming",
+        "Loss in Hour (LIH)",
+      ].includes(leaveType);
+      const payload = {
+        employeeId: user._id,
+        leaveType,
+        startDate,
+        endDate: isSingleDayApp ? startDate : endDate,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        reason: finalReason,
+        status: "Pending",
+      };
+      await API.post("/leaves", payload);
+      showToast("Request submitted successfully", "success");
+      onSuccess();
+      onClose();
+    } catch (error) {
+      showToast(
+        error.response?.data?.message || "Failed to submit request",
+        "error",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    onContinue(reason.trim());
   };
 
-  const primaryBtn = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "0.7rem 1.4rem",
-    borderRadius: "6px",
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    background: T.brass,
-    color: T.ink,
-    border: "none",
-    cursor: "pointer",
-  };
-
-  const ghostBtn = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "0.7rem 1.4rem",
-    borderRadius: "6px",
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    background: "transparent",
+  const labelStyle = {
+    display: "block",
+    fontSize: "0.72rem",
+    fontWeight: 700,
     color: T.textDim,
-    border: `1px solid ${T.hairlineStrong}`,
-    cursor: "pointer",
+    marginBottom: "0.4rem",
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
   };
+  const inputStyle = {
+    width: "100%",
+    padding: "0.75rem 1rem",
+    background: T.panelRaised,
+    border: `1px solid ${T.hairlineStrong}`,
+    borderRadius: "8px",
+    color: T.text,
+    fontSize: "0.9rem",
+    outline: "none",
+    boxSizing: "border-box",
+  };
+
+  const isSingleDayApp = [
+    "Early Leaving",
+    "Late Coming",
+    "Loss in Hour (LIH)",
+  ].includes(leaveType);
+  const isSingleTimeApp = ["Early Leaving", "Late Coming"].includes(leaveType);
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(6, 9, 17, 0.75)",
+        background: "rgba(6, 9, 17, 0.8)",
         backdropFilter: "blur(6px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         zIndex: 1000,
-        padding: "1.5rem",
+        padding: "1rem",
       }}
+      onClick={onClose}
     >
-      <style>{fontImport}</style>
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
           background: T.panel,
           border: `1px solid ${T.hairlineStrong}`,
-          borderRadius: "10px",
-          padding: "2.25rem",
+          borderRadius: "12px",
           width: "100%",
-          maxWidth: "440px",
-          position: "relative",
-          fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
-          color: T.text,
+          maxWidth: "480px",
+          overflow: "hidden",
+          boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <button
-          onClick={onClose}
-          aria-label="Close"
+        <div
           style={{
-            position: "absolute",
-            top: "1.1rem",
-            right: "1.1rem",
-            background: "none",
-            border: "none",
-            color: T.textDim,
-            fontSize: "1.4rem",
-            lineHeight: 1,
-            cursor: "pointer",
+            padding: "1.5rem 1.75rem",
+            borderBottom: `1px solid ${T.hairline}`,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          ×
-        </button>
+          <h2
+            style={{
+              fontFamily: "'Noto Serif', serif",
+              fontSize: "1.35rem",
+              fontWeight: 600,
+              color: T.text,
+              margin: 0,
+            }}
+          >
+            {requestCategory === "leave"
+              ? "Apply for Leave"
+              : "Submit Application"}
+          </h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              color: T.textDim,
+              cursor: "pointer",
+              padding: "0.25rem",
+            }}
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-        {step === "ask" && (
-          <>
-            <div
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            padding: "1.75rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.25rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              background: T.panelRaised,
+              padding: "4px",
+              borderRadius: "8px",
+              border: `1px solid ${T.hairline}`,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setRequestCategory("leave")}
               style={{
-                fontSize: "0.68rem",
+                flex: 1,
+                padding: "0.6rem",
+                borderRadius: "6px",
+                border: "none",
+                background:
+                  requestCategory === "leave" ? T.orangeDim : "transparent",
+                color: requestCategory === "leave" ? T.orange : T.textDim,
                 fontWeight: 700,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: T.brass,
-                marginBottom: "0.6rem",
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                transition: "all 0.2s",
               }}
             >
-              Before you apply
-            </div>
-            <h2
+              Standard Leave
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestCategory("application")}
               style={{
-                fontFamily: "'Noto Serif', 'Noto Serif Devanagari', serif",
-                fontSize: "1.4rem",
-                fontWeight: 600,
-                marginBottom: "0.6rem",
+                flex: 1,
+                padding: "0.6rem",
+                borderRadius: "6px",
+                border: "none",
+                background:
+                  requestCategory === "application"
+                    ? T.orangeDim
+                    : "transparent",
+                color: requestCategory === "application" ? T.orange : T.textDim,
+                fontWeight: 700,
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                transition: "all 0.2s",
               }}
             >
-              Have you discussed this leave with your HOD?
-            </h2>
-            <p
-              style={{
-                color: T.textDim,
-                fontSize: "0.875rem",
-                marginBottom: "1.75rem",
-              }}
-            >
-              Requests without a prior conversation are usually sent back, so
-              let's confirm first.
-            </p>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button
-                style={{ ...primaryBtn, flex: 1 }}
-                onClick={() => setStep("reason")}
-              >
-                Yes, I have
-              </button>
-              <button
-                style={{ ...ghostBtn, flex: 1 }}
-                onClick={() => setStep("blocked")}
-              >
-                No, not yet
-              </button>
-            </div>
-          </>
-        )}
+              Application (OD/WFH/Time)
+            </button>
+          </div>
 
-        {step === "blocked" && (
-          <>
+          <div>
+            <label style={labelStyle}>Request Type</label>
+            <select
+              value={leaveType}
+              onChange={(e) => setLeaveType(e.target.value)}
+              style={inputStyle}
+            >
+              {requestCategory === "leave" ? (
+                <>
+                  <option value="Casual Leave">Casual Leave</option>
+                  <option value="Sick Leave">Sick Leave</option>
+                  <option value="Earned Leave">Earned Leave</option>
+                </>
+              ) : (
+                <>
+                  <option value="Out of Duty (OD)">Out of Duty (OD)</option>
+                  <option value="Work From Home (WFH)">
+                    Work From Home (WFH)
+                  </option>
+                  <option value="Travel & Tour">Travel & Tour</option>
+                  <option value="Early Leaving">Early Leaving</option>
+                  <option value="Late Coming">Late Coming</option>
+                  <option value="Loss in Hour (LIH)">Loss in Hour (LIH)</option>
+                </>
+              )}
+            </select>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1rem",
+            }}
+          >
+            <div>
+              <label style={labelStyle}>
+                {isSingleDayApp ? "Date" : "Start Date"}
+              </label>
+              <input
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            {!isSingleDayApp && (
+              <div>
+                <label style={labelStyle}>End Date</label>
+                <input
+                  type="date"
+                  required
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={inputStyle}
+                  min={startDate}
+                />
+              </div>
+            )}
+          </div>
+
+          {requestCategory === "application" && (
             <div
               style={{
-                display: "inline-flex",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "1rem",
+                marginTop: "-0.5rem",
+              }}
+            >
+              <div>
+                <label style={labelStyle}>
+                  {leaveType === "Late Coming"
+                    ? "Arrived At"
+                    : leaveType === "Early Leaving"
+                      ? "Leaving At"
+                      : "Start Time"}
+                </label>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  style={inputStyle}
+                  required={isSingleDayApp}
+                />
+              </div>
+              {!isSingleTimeApp && (
+                <div>
+                  <label style={labelStyle}>End Time</label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    style={inputStyle}
+                    required={leaveType === "Loss in Hour (LIH)"}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {requestCategory === "application" && !isSingleDayApp && (
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: T.textDim,
+                display: "flex",
                 alignItems: "center",
                 gap: "0.4rem",
-                padding: "0.3rem 0.7rem",
-                borderRadius: "3px",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: T.brick,
-                background: T.brickDim,
-                marginBottom: "1rem",
-              }}
-            >
-              Talk to your HOD first
-            </div>
-            <h2
-              style={{
-                fontFamily: "'Noto Serif', 'Noto Serif Devanagari', serif",
-                fontSize: "1.4rem",
-                fontWeight: 600,
-                marginBottom: "0.6rem",
-              }}
-            >
-              Not quite ready yet
-            </h2>
-            <p
-              style={{
-                color: T.textDim,
-                fontSize: "0.875rem",
-                lineHeight: 1.6,
-                marginBottom: "1.75rem",
-              }}
-            >
-              Discuss this leave with your HOD before applying. Once that
-              conversation has happened, come back and start again.
-            </p>
-            <button style={{ ...primaryBtn, width: "100%" }} onClick={onClose}>
-              Okay, got it
-            </button>
-          </>
-        )}
-
-        {step === "reason" && (
-          <>
-            <div
-              style={{
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: T.brass,
-                marginBottom: "0.6rem",
-              }}
-            >
-              Step 2 of 2
-            </div>
-            <h2
-              style={{
-                fontFamily: "'Noto Serif', 'Noto Serif Devanagari', serif",
-                fontSize: "1.4rem",
-                fontWeight: 600,
-                marginBottom: "1rem",
-              }}
-            >
-              Why do you need this leave?
-            </h2>
-            <textarea
-              rows={4}
-              placeholder="Briefly explain the reason for your leave"
-              value={reason}
-              onChange={(e) => {
-                setReason(e.target.value);
-                if (error) setError("");
-              }}
-              autoFocus
-              style={{
-                width: "100%",
+                marginTop: "-0.75rem",
                 background: T.panelRaised,
-                border: `1px solid ${error ? T.brick : T.hairlineStrong}`,
+                padding: "0.5rem",
                 borderRadius: "6px",
-                padding: "0.85rem 1rem",
-                color: T.text,
-                fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
-                fontSize: "0.875rem",
-                resize: "vertical",
-                outline: "none",
               }}
-            />
-            {error && (
-              <p
-                style={{
-                  color: T.brick,
-                  fontSize: "0.78rem",
-                  marginTop: "0.5rem",
-                }}
-              >
-                {error}
-              </p>
-            )}
-            <div
-              style={{ display: "flex", gap: "0.75rem", marginTop: "1.75rem" }}
             >
-              <button style={ghostBtn} onClick={() => setStep("ask")}>
-                Back
-              </button>
-              <button
-                style={{ ...primaryBtn, flex: 1 }}
-                onClick={handleContinue}
-              >
-                Continue
-              </button>
+              <Info size={14} color={T.orange} /> Times are optional for
+              multi-day trips.
             </div>
-          </>
-        )}
+          )}
+
+          <div>
+            <label style={labelStyle}>Reason / Details</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              style={inputStyle}
+            >
+              {PRESET_REASONS.map((r, i) => (
+                <option key={i} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {reason === "Other / अन्य" && (
+            <div>
+              <label style={labelStyle}>Please specify details</label>
+              <input
+                type="text"
+                required
+                placeholder="Type details here..."
+                value={customReason}
+                onChange={(e) => setCustomReason(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "0.75rem",
+              marginTop: "0.5rem",
+            }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              style={{
+                padding: "0.75rem 1.25rem",
+                borderRadius: "8px",
+                border: `1px solid ${T.hairlineStrong}`,
+                background: "transparent",
+                color: T.textDim,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                border: "none",
+                background: `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`,
+                color: "#fff",
+                fontWeight: 700,
+                cursor: isSubmitting ? "default" : "pointer",
+                opacity: isSubmitting ? 0.7 : 1,
+              }}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Request"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
-}
+};

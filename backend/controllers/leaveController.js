@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const leaveRepository = require("../repositories/leaveRepository");
 const userRepository = require("../repositories/userRepository");
-const User = require("../models/User"); // Required to filter roles for HR
+const User = require("../models/User");
 const { ABSOLUTE_UPLOAD_PATH } = require("../middleware/upload");
 
 const REVIEWER_ROLES = ["HOD", "HR", "Admin"];
@@ -13,14 +13,9 @@ class LeaveController {
       const { userId, role } = req.query;
       let query = {};
 
-      // ===============================================
-      // LEAVE VISIBILITY RULES
-      // ===============================================
       if (role === "Employee") {
-        // 1. Employee sees ONLY their own leaves
         query.employee = userId;
       } else if (role === "HOD") {
-        // 2. HOD sees ONLY their direct reports (Hides their own leaves)
         const hod = await userRepository.findById(userId);
         if (!hod) return res.status(404).json({ message: "HOD not found" });
 
@@ -28,18 +23,13 @@ class LeaveController {
           hod.employeeCode,
         );
         const employeeIds = employees.map((emp) => emp._id);
-
         query.employee = { $in: employeeIds };
       } else if (role === "HR") {
-        // 3. HR sees Employee and HOD leaves (Hides HR and Admin leaves)
         const validUsers = await User.find({
           role: { $in: ["Employee", "HOD"] },
         });
         const validUserIds = validUsers.map((u) => u._id);
-
         query.employee = { $in: validUserIds };
-      } else if (role === "Admin") {
-        // 4. Admin sees absolutely everything (query stays empty: {})
       }
 
       let requests = await leaveRepository.find(query);
@@ -58,21 +48,25 @@ class LeaveController {
         leaveType,
         startDate,
         endDate,
+        startTime, // ADDED
+        endTime, // ADDED
         reason,
         discussedWithHOD,
       } = req.body;
+
       const newLeave = await leaveRepository.create({
         employee: employeeId,
         leaveType,
         startDate,
         endDate,
+        startTime, // SAVED
+        endTime, // SAVED
         reason,
         discussedWithHOD,
       });
-      res.status(201).json({
-        message: "Leave application submitted successfully",
-        leave: newLeave,
-      });
+      res
+        .status(201)
+        .json({ message: "Leave application submitted", leave: newLeave });
     } catch (err) {
       res
         .status(400)
@@ -91,7 +85,6 @@ class LeaveController {
 
       const approver = await userRepository.findByName(name);
       let formattedRole = role;
-
       if (role === "HOD" && approver) {
         formattedRole = `HOD - ${approver.department}`;
       }
@@ -126,7 +119,6 @@ class LeaveController {
 
       await leaveRepository.updateById(id, updateData);
       const [populatedLeave] = await leaveRepository.find({ _id: id });
-
       return res.json({
         message: `Leave request ${action.toLowerCase()} successfully`,
         leave: populatedLeave,
@@ -141,30 +133,27 @@ class LeaveController {
       const { id } = req.params;
       const { role, name, remark } = req.body;
 
-      if (!REVIEWER_ROLES.includes(role)) {
+      if (!REVIEWER_ROLES.includes(role))
         return res.status(403).json({ message: "Unauthorized action" });
-      }
-      if (!remark || !remark.trim()) {
+      if (!remark || !remark.trim())
         return res
           .status(400)
           .json({ message: "Please describe what document is required" });
-      }
 
       const leave = await leaveRepository.findById(id);
       if (!leave)
         return res.status(404).json({ message: "Leave request not found" });
 
       if (leave.proof?.status === "Requested") {
-        return res.status(409).json({
-          message: `${leave.proof.requestedByName || "Someone"} already requested a document for this leave. Please wait for it to be submitted.`,
-        });
+        return res
+          .status(409)
+          .json({ message: `Someone already requested a document.` });
       }
 
       const approver = await userRepository.findByName(name);
       let formattedRole = role;
-      if (role === "HOD" && approver) {
+      if (role === "HOD" && approver)
         formattedRole = `HOD - ${approver.department}`;
-      }
 
       const updated = await leaveRepository.updateById(id, {
         proof: {
@@ -177,7 +166,6 @@ class LeaveController {
           files: leave.proof?.files || [],
         },
       });
-
       res.json({
         message: "Document request sent to employee",
         leave: updated,
@@ -193,15 +181,10 @@ class LeaveController {
       const leave = await leaveRepository.findById(id);
       if (!leave)
         return res.status(404).json({ message: "Leave request not found" });
-
-      if (!leave.proof || leave.proof.status !== "Requested") {
-        return res.status(400).json({
-          message: "There is no active document request for this leave",
-        });
-      }
-      if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: "No files were uploaded" });
-      }
+      if (!leave.proof || leave.proof.status !== "Requested")
+        return res.status(400).json({ message: "No active request" });
+      if (!req.files || req.files.length === 0)
+        return res.status(400).json({ message: "No files uploaded" });
 
       const baseUrl = (
         process.env.BASE_URL || `${req.protocol}://${req.get("host")}`
@@ -218,7 +201,6 @@ class LeaveController {
         fileSize: f.size,
         uploadedAt: new Date(),
       }));
-
       const updated = await leaveRepository.pushProofFiles(id, newFiles);
       res.json({ message: "Files uploaded", leave: updated });
     } catch (err) {
@@ -230,20 +212,12 @@ class LeaveController {
     try {
       const { id, fileId } = req.params;
       const leave = await leaveRepository.findById(id);
-      if (!leave)
-        return res.status(404).json({ message: "Leave request not found" });
-
-      if (!leave.proof || leave.proof.status !== "Requested") {
-        return res
-          .status(400)
-          .json({ message: "Documents can no longer be edited" });
-      }
+      if (!leave || leave.proof?.status !== "Requested")
+        return res.status(400).json({ message: "Cannot edit" });
 
       const file = leave.proof.files.id(fileId);
-      if (file) {
-        const filePath = path.join(ABSOLUTE_UPLOAD_PATH, file.fileName);
-        fs.unlink(filePath, () => {});
-      }
+      if (file)
+        fs.unlink(path.join(ABSOLUTE_UPLOAD_PATH, file.fileName), () => {});
 
       const updated = await leaveRepository.removeProofFile(id, fileId);
       res.json({ message: "File removed", leave: updated });
@@ -256,30 +230,19 @@ class LeaveController {
     try {
       const { id } = req.params;
       const leave = await leaveRepository.findById(id);
-      if (!leave)
-        return res.status(404).json({ message: "Leave request not found" });
-
-      if (!leave.proof || leave.proof.status !== "Requested") {
-        return res
-          .status(400)
-          .json({ message: "There is no pending document request" });
-      }
-      if (!leave.proof.files || leave.proof.files.length === 0) {
-        return res.status(400).json({
-          message: "Please attach at least one document before sending",
-        });
-      }
+      if (!leave || leave.proof?.status !== "Requested")
+        return res.status(400).json({ message: "No pending request" });
+      if (!leave.proof.files || leave.proof.files.length === 0)
+        return res.status(400).json({ message: "Attach document first" });
 
       const updated = await leaveRepository.updateById(id, {
         "proof.status": "Submitted",
         "proof.submittedAt": new Date(),
       });
-
-      res.json({ message: "Documents sent for review", leave: updated });
+      res.json({ message: "Documents sent", leave: updated });
     } catch (err) {
       res.status(500).json({ message: "Server error", error: err.message });
     }
   }
 }
-
 module.exports = new LeaveController();

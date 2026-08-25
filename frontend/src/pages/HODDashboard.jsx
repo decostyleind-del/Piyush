@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API from "../api/axios";
+import { useTranslation } from "react-i18next";
 import {
   CheckCircle2,
   XCircle,
@@ -17,9 +18,6 @@ import {
   Send,
 } from "lucide-react";
 
-/* "Personnel Ledger" token system — orange accent to match the
-   employee/admin/HR dashboards. Keep these in sync if you tweak
-   this. */
 const T = {
   ink: "#0c1120",
   panel: "#141b2c",
@@ -39,14 +37,36 @@ const T = {
 
 const fontImport = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif:wght@500;600;700&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap');`;
 
+// ---- TIME CALCULATION HELPERS ----
+const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":");
+  const hours = parseInt(h, 10);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${m} ${suffix}`;
+};
+
+const calcDuration = (start, end) => {
+  if (!start || !end) return "";
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let diff = eh * 60 + em - (sh * 60 + sm);
+  if (diff <= 0) return "—";
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  if (h === 0) return `${m} mins`;
+  return m > 0 ? `${h}h ${m}m` : `${h} hrs`;
+};
+
 const STATUS_FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
-const StatusStamp = ({ status }) => {
+const StatusStamp = ({ status, label }) => {
   const cfg = {
-    Approved: { color: T.sage, bg: T.sageDim, label: "Approved" },
-    Rejected: { color: T.brick, bg: T.brickDim, label: "Rejected" },
-    Pending: { color: T.orange, bg: T.orangeDim, label: "Pending" },
-  }[status] || { color: T.orange, bg: T.orangeDim, label: status };
+    Approved: { color: T.sage, bg: T.sageDim },
+    Rejected: { color: T.brick, bg: T.brickDim },
+    Pending: { color: T.orange, bg: T.orangeDim },
+  }[status] || { color: T.orange, bg: T.orangeDim };
 
   return (
     <span
@@ -75,15 +95,18 @@ const StatusStamp = ({ status }) => {
           flexShrink: 0,
         }}
       />
-      {cfg.label}
+      {label || status}
     </span>
   );
 };
 
-// Proof column cell — mirrors the one in HRDashboard so HOD sees
-// the same "Request document" / "Waiting on employee" / "N files —
-// Review" states.
-const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
+const ProofCell = ({
+  leave,
+  onAskForDocument,
+  onViewDocuments,
+  t,
+  isHindi,
+}) => {
   const proof = leave.proof || { status: "None" };
 
   if (proof.status === "Submitted") {
@@ -105,8 +128,8 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
           whiteSpace: "nowrap",
         }}
       >
-        <Paperclip size={13} /> {proof.files?.length || 0} file
-        {proof.files?.length === 1 ? "" : "s"} — Review
+        <Paperclip size={13} /> {proof.files?.length || 0}{" "}
+        {isHindi ? "फ़ाइलें — देखें" : "files — Review"}
       </button>
     );
   }
@@ -132,7 +155,8 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
             color: T.orange,
           }}
         >
-          <Clock size={12} /> Waiting on employee
+          <Clock size={12} />{" "}
+          {isHindi ? "कर्मचारी की प्रतीक्षा में" : "Waiting on employee"}
         </span>
         <span
           style={{
@@ -149,7 +173,6 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
     );
   }
 
-  // status === "None"
   return (
     <button
       onClick={() => onAskForDocument(leave)}
@@ -168,12 +191,11 @@ const ProofCell = ({ leave, onAskForDocument, onViewDocuments }) => {
         whiteSpace: "nowrap",
       }}
     >
-      <FileText size={13} /> Request document
+      <FileText size={13} /> {isHindi ? "दस्तावेज़ माँगें" : "Request document"}
     </button>
   );
 };
 
-/* Summary stat card — matches EmployeeDashboard / AdminDashboard / HRDashboard */
 const StatCard = ({ icon: Icon, value, label, color, bg }) => (
   <div
     style={{
@@ -229,6 +251,9 @@ const StatCard = ({ icon: Icon, value, label, color, bg }) => (
 );
 
 export const HODDashboard = ({ user, showToast }) => {
+  const { t, i18n } = useTranslation();
+  const isHindi = i18n.language && i18n.language.startsWith("hi");
+
   const [leaves, setLeaves] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [selectedReason, setSelectedReason] = useState(null);
@@ -239,18 +264,20 @@ export const HODDashboard = ({ user, showToast }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
-  // ---- Proof / document workflow state ----
-  const [askDocLeave, setAskDocLeave] = useState(null); // leave currently being asked for a doc
+  const [askDocLeave, setAskDocLeave] = useState(null);
   const [remarkInput, setRemarkInput] = useState("");
   const [requestingProof, setRequestingProof] = useState(false);
-  const [viewDocsLeave, setViewDocsLeave] = useState(null); // leave whose submitted docs we're viewing
+  const [viewDocsLeave, setViewDocsLeave] = useState(null);
 
   const fetchLeaves = async () => {
     try {
       const { data } = await API.get(`/leaves?role=HOD&userId=${user._id}`);
       setLeaves(data);
     } catch (err) {
-      showToast("Failed to load requests", "error");
+      showToast(
+        isHindi ? "लोड करने में विफल" : "Failed to load requests",
+        "error",
+      );
     } finally {
       setInitialLoading(false);
     }
@@ -283,10 +310,15 @@ export const HODDashboard = ({ user, showToast }) => {
           curr.map((l) => (l._id === id ? { ...l, ...data.leave } : l)),
         );
       }
-      showToast(`Request ${action.toLowerCase()} successfully`, "success");
+      showToast(
+        isHindi
+          ? "सफलतापूर्वक अद्यतित किया गया"
+          : `Request ${action.toLowerCase()} successfully`,
+        "success",
+      );
     } catch (err) {
       setLeaves(previous);
-      showToast(err.response?.data?.message || "Action failed", "error");
+      showToast(isHindi ? "विफल रहा" : "Action failed", "error");
     } finally {
       setPendingIds((curr) => {
         const next = { ...curr };
@@ -296,12 +328,15 @@ export const HODDashboard = ({ user, showToast }) => {
     }
   };
 
-  // ---- Proof / document workflow handlers ----
-
   const handleSubmitProofRequest = async () => {
     if (!askDocLeave) return;
     if (!remarkInput.trim()) {
-      showToast("Please describe what document is needed", "error");
+      showToast(
+        isHindi
+          ? "कृपया विवरण स्पष्ट करें"
+          : "Please describe what document is needed",
+        "error",
+      );
       return;
     }
     setRequestingProof(true);
@@ -321,17 +356,31 @@ export const HODDashboard = ({ user, showToast }) => {
           ),
         );
       }
-      showToast("Document request sent to employee", "success");
+      showToast(
+        isHindi
+          ? "कर्मचारी को अनुरोध भेजा गया"
+          : "Document request sent to employee",
+        "success",
+      );
       setAskDocLeave(null);
       setRemarkInput("");
     } catch (err) {
       showToast(
-        err.response?.data?.message || "Failed to send request",
+        err.response?.data?.message ||
+          (isHindi ? "विफल रहा" : "Failed to send request"),
         "error",
       );
     } finally {
       setRequestingProof(false);
     }
+  };
+
+  // FIXED BUG HERE
+  const getStatusLabel = (status) => {
+    if (status === "Approved") return isHindi ? "स्वीकृत" : "Approved";
+    if (status === "Rejected") return isHindi ? "अस्वीकृत" : "Rejected";
+    if (status === "Pending") return isHindi ? "लंबित" : "Pending";
+    return status;
   };
 
   const stats = useMemo(() => {
@@ -435,7 +484,7 @@ export const HODDashboard = ({ user, showToast }) => {
               }}
             >
               <Layers size={18} strokeWidth={2.5} />
-              Head of Department
+              {isHindi ? "विभाग प्रमुख (HOD)" : "Head of Department"}
             </div>
             <h1
               style={{
@@ -447,7 +496,7 @@ export const HODDashboard = ({ user, showToast }) => {
                 lineHeight: 1.1,
               }}
             >
-              Department Register
+              {isHindi ? "विभाग रजिस्टर" : "Department Register"}
             </h1>
             <p
               style={{
@@ -456,9 +505,11 @@ export const HODDashboard = ({ user, showToast }) => {
                 marginTop: "0.75rem",
               }}
             >
-              Leave requests from{" "}
-              <strong style={{ color: "#c9c5b6" }}>{user.department}</strong>,
-              awaiting your review.
+              {isHindi ? "" : "Leave requests from"}{" "}
+              <strong style={{ color: "#c9c5b6" }}>{user.department}</strong>
+              {isHindi
+                ? " से छुट्टी के अनुरोध, आपकी समीक्षा की प्रतीक्षा में।"
+                : ", awaiting your review."}
             </p>
           </div>
           <div
@@ -469,8 +520,8 @@ export const HODDashboard = ({ user, showToast }) => {
               fontStyle: "italic",
             }}
           >
-            {filteredLeaves.length} of {leaves.length} record
-            {leaves.length !== 1 ? "s" : ""} shown
+            {filteredLeaves.length} {isHindi ? "में से" : "of"} {leaves.length}{" "}
+            {isHindi ? "रिकॉर्ड दिखाए गए" : "records shown"}
           </div>
         </div>
 
@@ -486,28 +537,28 @@ export const HODDashboard = ({ user, showToast }) => {
           <StatCard
             icon={ListChecks}
             value={stats.total}
-            label="Total Requests"
+            label={isHindi ? "कुल अनुरोध" : "Total Requests"}
             color={T.text}
             bg="rgba(236,231,217,0.1)"
           />
           <StatCard
             icon={Clock}
             value={stats.pending}
-            label="Pending"
+            label={isHindi ? "लंबित" : "Pending"}
             color={T.orange}
             bg={T.orangeDim}
           />
           <StatCard
             icon={CheckCircle2}
             value={stats.approved}
-            label="Approved"
+            label={isHindi ? "स्वीकृत" : "Approved"}
             color={T.sage}
             bg={T.sageDim}
           />
           <StatCard
             icon={XCircle}
             value={stats.rejected}
-            label="Rejected"
+            label={isHindi ? "अस्वीकृत" : "Rejected"}
             color={T.brick}
             bg={T.brickDim}
           />
@@ -544,7 +595,11 @@ export const HODDashboard = ({ user, showToast }) => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by employee, code, type, or reason…"
+              placeholder={
+                isHindi
+                  ? "कर्मचारी, कोड, प्रकार या कारण से खोजें..."
+                  : "Search by employee, code, type, or reason…"
+              }
               style={{
                 width: "100%",
                 padding: "0.85rem 1rem 0.85rem 2.75rem",
@@ -572,36 +627,41 @@ export const HODDashboard = ({ user, showToast }) => {
               border: `1px solid ${T.hairline}`,
             }}
           >
-            {STATUS_FILTERS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusFilter(s)}
-                style={{
-                  padding: "0.65rem 1.1rem",
-                  borderRadius: "7px",
-                  border: "none",
-                  background:
-                    statusFilter === s
-                      ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
-                      : "transparent",
-                  color: statusFilter === s ? "#fff" : T.textDim,
-                  fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
-                  fontWeight: 700,
-                  fontSize: "0.78rem",
-                  letterSpacing: "0.03em",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  boxShadow:
-                    statusFilter === s
-                      ? "0 4px 14px rgba(249,115,22,0.3)"
-                      : "none",
-                  transition: "all 0.2s",
-                }}
-              >
-                {s}
-              </button>
-            ))}
+            {STATUS_FILTERS.map((s) => {
+              const label =
+                s === "All" ? (isHindi ? "सभी" : "All") : getStatusLabel(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s)}
+                  style={{
+                    padding: "0.65rem 1.1rem",
+                    borderRadius: "7px",
+                    border: "none",
+                    background:
+                      statusFilter === s
+                        ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
+                        : "transparent",
+                    color: statusFilter === s ? "#fff" : T.textDim,
+                    fontFamily:
+                      "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
+                    fontWeight: 700,
+                    fontSize: "0.78rem",
+                    letterSpacing: "0.03em",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    boxShadow:
+                      statusFilter === s
+                        ? "0 4px 14px rgba(249,115,22,0.3)"
+                        : "none",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -636,25 +696,25 @@ export const HODDashboard = ({ user, showToast }) => {
                   }}
                 >
                   <th style={{ padding: "1.3rem 1.75rem", fontWeight: 700 }}>
-                    Employee
+                    {isHindi ? "कर्मचारी" : "Employee"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Category
+                    {isHindi ? "श्रेणी" : "Category"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Dates
+                    {isHindi ? "तिथियां" : "Dates"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Reason
+                    {isHindi ? "कारण" : "Reason"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Status
+                    {isHindi ? "स्थिति" : "Status"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Proof
+                    {isHindi ? "दस्तावेज़" : "Proof"}
                   </th>
                   <th style={{ padding: "1.3rem 1rem", fontWeight: 700 }}>
-                    Reviewed by
+                    {isHindi ? "समीक्षक" : "Reviewed by"}
                   </th>
                   <th
                     style={{
@@ -663,7 +723,7 @@ export const HODDashboard = ({ user, showToast }) => {
                       fontWeight: 700,
                     }}
                   >
-                    Action
+                    {isHindi ? "कार्रवाई" : "Action"}
                   </th>
                 </tr>
               </thead>
@@ -678,7 +738,9 @@ export const HODDashboard = ({ user, showToast }) => {
                         color: T.textDim,
                       }}
                     >
-                      Loading register…
+                      {isHindi
+                        ? "रजिस्टर लोड हो रहा है..."
+                        : "Loading register…"}
                     </td>
                   </tr>
                 ) : filteredLeaves.length === 0 ? (
@@ -694,8 +756,12 @@ export const HODDashboard = ({ user, showToast }) => {
                       />
                       <div style={{ color: T.textDim, fontSize: "1.05rem" }}>
                         {leaves.length === 0
-                          ? "No pending requests in the queue."
-                          : "No records match your search."}
+                          ? isHindi
+                            ? "सिस्टम मास्टर लॉग खाली है।"
+                            : "System master log empty."
+                          : isHindi
+                            ? "कोई रिकॉर्ड नहीं मिला।"
+                            : "No records match your search."}
                       </div>
                     </td>
                   </tr>
@@ -705,6 +771,9 @@ export const HODDashboard = ({ user, showToast }) => {
                       l.status === "Approved" || l.status === "Rejected";
                     const isLongReason = l.reason && l.reason.length > 30;
                     const isBusy = !!pendingIds[l._id];
+                    const isSingleDay =
+                      new Date(l.startDate).getTime() ===
+                      new Date(l.endDate).getTime();
 
                     return (
                       <tr
@@ -747,12 +816,77 @@ export const HODDashboard = ({ user, showToast }) => {
                         <td
                           style={{
                             padding: "1.35rem 1rem",
-                            color: T.textDim,
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {new Date(l.startDate).toLocaleDateString()} →{" "}
-                          {new Date(l.endDate).toLocaleDateString()}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.3rem",
+                            }}
+                          >
+                            <span
+                              style={{ color: T.textDim, fontSize: "0.95rem" }}
+                            >
+                              {new Date(l.startDate).toLocaleDateString()}
+                              {!isSingleDay &&
+                                ` → ${new Date(l.endDate).toLocaleDateString()}`}
+                            </span>
+                            {(l.startTime || l.endTime) && (
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.4rem",
+                                  fontSize: "0.8rem",
+                                  color: T.orange,
+                                  marginTop: "2px",
+                                }}
+                              >
+                                <Clock size={13} strokeWidth={2.5} />
+                                <span>
+                                  {l.endTime ? (
+                                    <>
+                                      <strong
+                                        style={{
+                                          color: "#ece7d9",
+                                          fontSize: "0.85rem",
+                                          marginRight: "4px",
+                                        }}
+                                      >
+                                        {calcDuration(l.startTime, l.endTime)}
+                                      </strong>
+                                      ({formatTime(l.startTime)} -{" "}
+                                      {formatTime(l.endTime)})
+                                    </>
+                                  ) : (
+                                    <strong
+                                      style={{
+                                        color: "#ece7d9",
+                                        fontSize: "0.85rem",
+                                      }}
+                                    >
+                                      {formatTime(l.startTime)}
+                                    </strong>
+                                  )}
+                                </span>
+                                <span
+                                  style={{
+                                    marginLeft: "4px",
+                                    background: T.orangeDim,
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontSize: "0.65rem",
+                                    fontWeight: "bold",
+                                    letterSpacing: "0.05em",
+                                  }}
+                                >
+                                  {isHindi ? "घंटे के अनुसार" : "HOURLY"}
+                                </span>
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td
                           style={{
@@ -780,16 +914,21 @@ export const HODDashboard = ({ user, showToast }) => {
                                 padding: 0,
                               }}
                             >
-                              Read more
+                              {isHindi ? "और पढ़ें" : "Read more"}
                             </button>
                           )}
                         </td>
                         <td style={{ padding: "1.35rem 1rem" }}>
-                          <StatusStamp status={l.status} />
+                          <StatusStamp
+                            status={l.status}
+                            label={getStatusLabel(l.status)}
+                          />
                         </td>
                         <td style={{ padding: "1.35rem 1rem" }}>
                           <ProofCell
                             leave={l}
+                            isHindi={isHindi}
+                            t={t}
                             onAskForDocument={(leave) => {
                               setAskDocLeave(leave);
                               setRemarkInput("");
@@ -839,7 +978,8 @@ export const HODDashboard = ({ user, showToast }) => {
                                   cursor: isBusy ? "default" : "pointer",
                                 }}
                               >
-                                <CheckCircle2 size={14} /> Approve
+                                <CheckCircle2 size={14} />{" "}
+                                {isHindi ? "स्वीकार करें" : "Approve"}
                               </button>
                               <button
                                 disabled={isBusy}
@@ -858,7 +998,8 @@ export const HODDashboard = ({ user, showToast }) => {
                                   cursor: isBusy ? "default" : "pointer",
                                 }}
                               >
-                                <XCircle size={14} /> Reject
+                                <XCircle size={14} />{" "}
+                                {isHindi ? "अस्वीकार करें" : "Reject"}
                               </button>
                             </div>
                           ) : (
@@ -876,7 +1017,7 @@ export const HODDashboard = ({ user, showToast }) => {
                                 border: `1px solid ${T.hairlineStrong}`,
                               }}
                             >
-                              DONE
+                              {isHindi ? "पूर्ण" : "DONE"}
                             </span>
                           )}
                         </td>
@@ -888,7 +1029,6 @@ export const HODDashboard = ({ user, showToast }) => {
             </table>
           </div>
 
-          {/* Pagination bar */}
           {!initialLoading && filteredLeaves.length > 0 && (
             <div
               style={{
@@ -902,9 +1042,9 @@ export const HODDashboard = ({ user, showToast }) => {
               }}
             >
               <div style={{ color: T.textDim, fontSize: "0.9rem" }}>
-                Showing {(currentPage - 1) * rowsPerPage + 1}–
-                {Math.min(currentPage * rowsPerPage, filteredLeaves.length)} of{" "}
-                {filteredLeaves.length}
+                {isHindi
+                  ? `कुल ${filteredLeaves.length} में से ${(currentPage - 1) * rowsPerPage + 1}–${Math.min(currentPage * rowsPerPage, filteredLeaves.length)} दिखा रहे हैं`
+                  : `Showing ${(currentPage - 1) * rowsPerPage + 1}–${Math.min(currentPage * rowsPerPage, filteredLeaves.length)} of ${filteredLeaves.length}`}
               </div>
 
               <div
@@ -926,11 +1066,9 @@ export const HODDashboard = ({ user, showToast }) => {
                     cursor: currentPage === 1 ? "not-allowed" : "pointer",
                     opacity: currentPage === 1 ? 0.5 : 1,
                   }}
-                  aria-label="Previous page"
                 >
                   <ChevronLeft size={18} />
                 </button>
-
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                   (page) => (
                     <button
@@ -963,7 +1101,6 @@ export const HODDashboard = ({ user, showToast }) => {
                     </button>
                   ),
                 )}
-
                 <button
                   onClick={() =>
                     setCurrentPage((p) => Math.min(totalPages, p + 1))
@@ -983,7 +1120,6 @@ export const HODDashboard = ({ user, showToast }) => {
                       currentPage === totalPages ? "not-allowed" : "pointer",
                     opacity: currentPage === totalPages ? 0.5 : 1,
                   }}
-                  aria-label="Next page"
                 >
                   <ChevronRight size={18} />
                 </button>
@@ -1042,7 +1178,7 @@ export const HODDashboard = ({ user, showToast }) => {
                 marginBottom: "1rem",
               }}
             >
-              Full justification
+              {isHindi ? "पूर्ण विवरण" : "Full justification"}
             </h3>
             <p
               style={{
@@ -1061,7 +1197,6 @@ export const HODDashboard = ({ user, showToast }) => {
         </div>
       )}
 
-      {/* ==================== ASK FOR DOCUMENT MODAL ==================== */}
       {askDocLeave && (
         <div
           style={{
@@ -1111,7 +1246,9 @@ export const HODDashboard = ({ user, showToast }) => {
                 marginBottom: "0.4rem",
               }}
             >
-              Request a supporting document
+              {isHindi
+                ? "सहायक दस्तावेज़ का अनुरोध करें"
+                : "Request a supporting document"}
             </h3>
             <p
               style={{
@@ -1133,12 +1270,18 @@ export const HODDashboard = ({ user, showToast }) => {
                 marginBottom: "0.5rem",
               }}
             >
-              What do you need from them?
+              {isHindi
+                ? "आपको उनसे क्या चाहिए?"
+                : "What do you need from them?"}
             </label>
             <textarea
               value={remarkInput}
               onChange={(e) => setRemarkInput(e.target.value)}
-              placeholder="e.g. Please attach a medical certificate for the sick days claimed"
+              placeholder={
+                isHindi
+                  ? "उदा., कृपया मेडिकल सर्टिफिकेट संलग्न करें..."
+                  : "e.g. Please attach a medical certificate..."
+              }
               rows={3}
               style={{
                 width: "100%",
@@ -1176,7 +1319,7 @@ export const HODDashboard = ({ user, showToast }) => {
                   cursor: "pointer",
                 }}
               >
-                Cancel
+                {isHindi ? "रद्द करें" : "Cancel"}
               </button>
               <button
                 onClick={handleSubmitProofRequest}
@@ -1197,14 +1340,19 @@ export const HODDashboard = ({ user, showToast }) => {
                 }}
               >
                 <Send size={14} />
-                {requestingProof ? "Sending…" : "Send request"}
+                {requestingProof
+                  ? isHindi
+                    ? "भेजा जा रहा है..."
+                    : "Sending..."
+                  : isHindi
+                    ? "अनुरोध भेजें"
+                    : "Send request"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ==================== VIEW SUBMITTED DOCUMENTS MODAL ==================== */}
       {viewDocsLeave && (
         <div
           style={{
@@ -1254,7 +1402,7 @@ export const HODDashboard = ({ user, showToast }) => {
                 marginBottom: "0.4rem",
               }}
             >
-              Submitted documents
+              {isHindi ? "सबमिट किए गए दस्तावेज़" : "Submitted documents"}
             </h3>
             <p
               style={{
@@ -1276,7 +1424,9 @@ export const HODDashboard = ({ user, showToast }) => {
                 marginBottom: "1.25rem",
               }}
             >
-              <strong style={{ color: T.textDim }}>Requested:</strong>{" "}
+              <strong style={{ color: T.textDim }}>
+                {isHindi ? "अनुरोध किया गया:" : "Requested:"}
+              </strong>{" "}
               {viewDocsLeave.proof?.remark}
             </div>
             <div
@@ -1332,7 +1482,7 @@ export const HODDashboard = ({ user, showToast }) => {
               {(!viewDocsLeave.proof?.files ||
                 viewDocsLeave.proof.files.length === 0) && (
                 <p style={{ color: T.textDim, fontSize: "0.85rem" }}>
-                  No files found.
+                  {isHindi ? "कोई फ़ाइल नहीं मिली।" : "No files found."}
                 </p>
               )}
             </div>
