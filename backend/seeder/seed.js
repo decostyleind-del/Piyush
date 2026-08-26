@@ -128,7 +128,7 @@ const seedDB = async () => {
       // SALES DEPARTMENT (Reports to GB Sir - 107)
       // ==========================================
       {
-        name: "Dipesh Sir",
+        name: "Dipesh Jain",
         password: hashedPassword,
         employeeCode: "1382",
         dob: "1978-05-15",
@@ -221,7 +221,7 @@ const seedDB = async () => {
       // ADMINISTRATION EMPLOYEES (Approved by Admin - ADM001)
       // ==========================================
       {
-        name: "Dharmendra Chaudhary (D.C)",
+        name: "Dharmendra Chaudhary",
         password: hashedPassword,
         employeeCode: "1016",
         dob: "1989-09-10",
@@ -366,7 +366,7 @@ const seedDB = async () => {
         reportingManager: "ADM001",
       },
       {
-        name: "Pandey Ji",
+        name: "Vishnu Pandey",
         password: hashedPassword,
         employeeCode: "050",
         dob: "1964-08-03",

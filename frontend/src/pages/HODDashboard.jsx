@@ -293,7 +293,7 @@ export const HODDashboard = ({ user, showToast }) => {
       ...leaves.find((l) => l._id === id),
       status: action,
       approvedByName: user.name,
-      approvedByRole: `HOD - ${user.department}`,
+      // approvedByRole: `HOD - ${user.department}`,
     };
 
     setLeaves((curr) => curr.map((l) => (l._id === id ? optimisticRecord : l)));
@@ -943,9 +943,7 @@ export const HODDashboard = ({ user, showToast }) => {
                             fontSize: "0.83rem",
                           }}
                         >
-                          {l.approvedByName && l.approvedByRole
-                            ? `${l.approvedByName} (${l.approvedByRole})`
-                            : "—"}
+                          {l.approvedByName ? l.approvedByName : "—"}
                         </td>
                         <td
                           style={{
