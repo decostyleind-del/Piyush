@@ -48,22 +48,41 @@ class LeaveController {
         leaveType,
         startDate,
         endDate,
-        startTime, // ADDED
-        endTime, // ADDED
+        startTime,
+        endTime,
         reason,
         discussedWithHOD,
       } = req.body;
+
+      // --- NEW LOGIC START ---
+      // Fetch the user to check their department
+      const user = await userRepository.findById(employeeId);
+
+      // Set the default status
+      let currentStatus = "Pending HOD";
+
+      // If the user is in Administration, skip HOD and send directly to HR
+      if (
+        user &&
+        user.department === "Administration" &&
+        user.role === "Employee"
+      ) {
+        currentStatus = "Pending HR";
+      }
+      // --- NEW LOGIC END ---
 
       const newLeave = await leaveRepository.create({
         employee: employeeId,
         leaveType,
         startDate,
         endDate,
-        startTime, // SAVED
-        endTime, // SAVED
+        startTime,
+        endTime,
         reason,
         discussedWithHOD,
+        status: currentStatus, // Save the dynamically assigned status
       });
+
       res
         .status(201)
         .json({ message: "Leave application submitted", leave: newLeave });

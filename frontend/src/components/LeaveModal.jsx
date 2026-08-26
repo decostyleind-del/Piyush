@@ -66,7 +66,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
   const isHindi = i18n.language && i18n.language.startsWith("hi");
 
   const [requestCategory, setRequestCategory] = useState("leave");
-
   const [leaveType, setLeaveType] = useState("Leave");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -110,7 +109,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Determine the final reason based on the active tab
     let finalReason = "";
     if (requestCategory === "leave") {
       if (reason === "Select a reason...") {
@@ -118,7 +116,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
       }
       finalReason = reason === "Other / अन्य" ? customReason : reason;
     } else {
-      // For Application tab, we bypass the dropdown entirely and just use the custom input
       finalReason = customReason;
     }
 
@@ -172,6 +169,7 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
     fontSize: "0.9rem",
     outline: "none",
     boxSizing: "border-box",
+    caretColor: "#3b82f6", // ADDED: Shows the blue blinking cursor for typing
   };
 
   return (
@@ -187,7 +185,7 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
         zIndex: 1000,
         padding: "1rem",
       }}
-      onClick={onClose}
+      // REMOVED: onClick={onClose} so clicking the background won't close the modal
     >
       <style>
         {`
@@ -205,7 +203,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
       </style>
 
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           background: T.panel,
           border: `1px solid ${T.hairlineStrong}`,
@@ -241,6 +238,7 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
               : t("modal.submit_app")}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             style={{
               background: "none",
@@ -427,7 +425,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
             </div>
           )}
 
-          {/* ONLY show the dropdown reason picker if in Standard Leave mode */}
           {requestCategory === "leave" && (
             <div>
               <label style={labelStyle}>{t("modal.reason_details")}</label>
@@ -445,7 +442,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
             </div>
           )}
 
-          {/* Show the text input for Application mode OR if "Other" is selected in Standard mode */}
           {(requestCategory === "application" || reason === "Other / अन्य") && (
             <div>
               <label style={labelStyle}>{t("modal.specify_details")}</label>
