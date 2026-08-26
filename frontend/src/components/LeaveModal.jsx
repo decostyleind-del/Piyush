@@ -37,13 +37,37 @@ const PRESET_REASONS = [
   "Academic Exam / Professional Certification (शैक्षणिक परीक्षा / व्यावसायिक प्रमाणन)",
   "Attending Close Relative's Surgery (सगे संबंधी की सर्जरी में शामिल होना)",
   "Pet Care / Veterinary Emergency (पालतू जानवरों की देखभाल / पशु चिकित्सा आपातकाल)",
+  "Maternity Leave (मातृत्व अवकाश)",
+  "Paternity Leave (पितृत्व अवकाश)",
+  "Bereavement / Death in Family (शोक / परिवार में मृत्यु)",
+  "Blood Donation (रक्तदान)",
+  "Voting / Election Duty (मतदान / चुनाव ड्यूटी)",
+  "Court Appearance / Jury Duty (न्यायालय में उपस्थिति / जूरी ड्यूटी)",
+  "Study Leave / Exam Preparation (अध्ययन अवकाश / परीक्षा की तैयारी)",
+  "Sabbatical / Career Break (विश्राम अवकाश / करियर ब्रेक)",
+  "Unpaid Leave / Leave Without Pay (अवैतनिक अवकाश)",
+  "Quarantine / Infectious Disease (संगरोध / संक्रामक रोग)",
+  "Work Injury / Occupational Accident (कार्यस्थल पर चोट / दुर्घटना)",
+  "Relocation / City Transfer (स्थानांतरण / शहर बदलना)",
+  "Accompanying Dependent to Hospital (आश्रित को अस्पताल ले जाना)",
+  "Visa / Passport Renewal (वीज़ा / पासपोर्ट नवीनीकरण)",
+  "Attending PTA / School Meeting (पीटीए / स्कूल की बैठक में उपस्थिति)",
+  "Natural Disaster / Extreme Weather (प्राकृतिक आपदा / खराब मौसम)",
+  "Transportation Strike / Commute Issue (परिवहन हड़ताल / आवागमन की समस्या)",
+  "Volunteer Work / Social Service (स्वयंसेवी कार्य / समाज सेवा)",
+  "Sibling's / Close Friend's Wedding (भाई-बहन / करीबी दोस्त की शादी)",
+  "Annual Vacation / Long Holiday (वार्षिक अवकाश / लंबी छुट्टी)",
+  "Minor Surgery / Dental Procedure (मामूली सर्जरी / दंत चिकित्सा)",
+  "Bank Loan / Property Registration (बैंक ऋण / संपत्ति पंजीकरण)",
 ];
 
 export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isHindi = i18n.language && i18n.language.startsWith("hi");
+
   const [requestCategory, setRequestCategory] = useState("leave");
 
-  const [leaveType, setLeaveType] = useState("Casual Leave");
+  const [leaveType, setLeaveType] = useState("Leave");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -56,8 +80,11 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   useEffect(() => {
-    if (requestCategory === "leave") setLeaveType("Casual Leave");
-    else setLeaveType("Out of Duty (OD)");
+    if (requestCategory === "leave") {
+      setLeaveType("Leave");
+    } else {
+      setLeaveType("Out Duty (OD)");
+    }
     setStartTime("");
     setEndTime("");
   }, [requestCategory]);
@@ -82,11 +109,22 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (reason === "Select a reason...")
+
+    // Determine the final reason based on the active tab
+    let finalReason = "";
+    if (requestCategory === "leave") {
+      if (reason === "Select a reason...") {
+        return showToast(t("modal.select_reason"), "error");
+      }
+      finalReason = reason === "Other / अन्य" ? customReason : reason;
+    } else {
+      // For Application tab, we bypass the dropdown entirely and just use the custom input
+      finalReason = customReason;
+    }
+
+    if (!finalReason.trim()) {
       return showToast(t("modal.select_reason"), "error");
-    const finalReason = reason === "Other / अन्य" ? customReason : reason;
-    if (!finalReason.trim())
-      return showToast(t("modal.select_reason"), "error");
+    }
 
     setIsSubmitting(true);
     try {
@@ -151,10 +189,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
       }}
       onClick={onClose}
     >
-      {/* 
-        This style block forces BOTH the date calendar icon and 
-        the time clock icon to be bright white against your dark theme! 
-      */}
       <style>
         {`
           input[type="date"]::-webkit-calendar-picker-indicator,
@@ -276,37 +310,28 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                 transition: "all 0.2s",
               }}
             >
-              {t("modal.application_tab")}
+              {isHindi ? "आवेदन" : "Application"}
             </button>
           </div>
 
-          <div>
-            <label style={labelStyle}>{t("modal.request_type")}</label>
-            <select
-              value={leaveType}
-              onChange={(e) => setLeaveType(e.target.value)}
-              style={inputStyle}
-            >
-              {requestCategory === "leave" ? (
-                <>
-                  <option value="Casual Leave">{t("modal.casual")}</option>
-                  <option value="Sick Leave">{t("modal.sick")}</option>
-                  <option value="Earned Leave">{t("modal.earned")}</option>
-                </>
-              ) : (
-                <>
-                  <option value="Out of Duty (OD)">{t("modal.od")}</option>
-                  <option value="Work From Home (WFH)">{t("modal.wfh")}</option>
-                  <option value="Travel & Tour">{t("modal.travel")}</option>
-                  <option value="Early Leaving">
-                    {t("modal.early_leaving")}
-                  </option>
-                  <option value="Late Coming">{t("modal.late_coming")}</option>
-                  <option value="Loss in Hour (LIH)">{t("modal.lih")}</option>
-                </>
-              )}
-            </select>
-          </div>
+          {requestCategory === "application" && (
+            <div>
+              <label style={labelStyle}>{t("modal.request_type")}</label>
+              <select
+                value={leaveType}
+                onChange={(e) => setLeaveType(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="Out Duty (OD)">Out Duty (OD)</option>
+                <option value="Travel & Tour">{t("modal.travel")}</option>
+                <option value="Early Leaving">
+                  {t("modal.early_leaving")}
+                </option>
+                <option value="Late Coming">{t("modal.late_coming")}</option>
+                <option value="Loss in Hour (LIH)">{t("modal.lih")}</option>
+              </select>
+            </div>
+          )}
 
           <div
             style={{
@@ -402,22 +427,26 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
             </div>
           )}
 
-          <div>
-            <label style={labelStyle}>{t("modal.reason_details")}</label>
-            <select
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              style={inputStyle}
-            >
-              {PRESET_REASONS.map((r, i) => (
-                <option key={i} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* ONLY show the dropdown reason picker if in Standard Leave mode */}
+          {requestCategory === "leave" && (
+            <div>
+              <label style={labelStyle}>{t("modal.reason_details")}</label>
+              <select
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                style={inputStyle}
+              >
+                {PRESET_REASONS.map((r, i) => (
+                  <option key={i} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {reason === "Other / अन्य" && (
+          {/* Show the text input for Application mode OR if "Other" is selected in Standard mode */}
+          {(requestCategory === "application" || reason === "Other / अन्य") && (
             <div>
               <label style={labelStyle}>{t("modal.specify_details")}</label>
               <input
@@ -425,7 +454,8 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                 required
                 placeholder={
                   requestCategory === "application"
-                    ? t("modal.placeholder_mumbai")
+                    ? t("modal.placeholder_mumbai") ||
+                      "e.g., Going to Mumbai office..."
                     : t("modal.placeholder_reason")
                 }
                 value={customReason}
