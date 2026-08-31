@@ -131,7 +131,7 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
           employeeCode: form.employeeCode,
           dob: form.dob,
           department: form.department,
-          role_: form.empRole, // avoid clashing with acting `role`
+          role_: form.empRole,
           reportingManager: form.reportingManager,
           password: form.password || undefined,
         });
@@ -417,7 +417,6 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
             justifyContent: "center",
             zIndex: 1000,
           }}
-          onClick={() => !saving && setFormOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -464,6 +463,14 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
                   : "Add New Employee"}
             </h3>
 
+            {/* DUMMY INPUTS TO ABSORB BROWSER AUTO-FILL */}
+            <input type="text" style={{ display: "none" }} aria-hidden="true" />
+            <input
+              type="password"
+              style={{ display: "none" }}
+              aria-hidden="true"
+            />
+
             <div
               style={{
                 display: "grid",
@@ -480,6 +487,7 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
                   style={inputStyle}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  autoComplete="off"
                 />
               </div>
               <div>
@@ -492,6 +500,7 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
                   onChange={(e) =>
                     setForm({ ...form, employeeCode: e.target.value })
                   }
+                  autoComplete="off"
                 />
               </div>
               <div>
@@ -515,6 +524,7 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
                   onChange={(e) =>
                     setForm({ ...form, department: e.target.value })
                   }
+                  autoComplete="off"
                 />
               </div>
               <div>
@@ -542,6 +552,7 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
                   onChange={(e) =>
                     setForm({ ...form, reportingManager: e.target.value })
                   }
+                  autoComplete="off"
                 />
               </div>
               <div>
@@ -552,6 +563,8 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
                   style={inputStyle}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  autoComplete="nope"
+                  name="random_email_field"
                 />
               </div>
               <div>
@@ -567,6 +580,8 @@ export const EmployeeManagement = ({ user, showToast, isHindi }) => {
                   onChange={(e) =>
                     setForm({ ...form, password: e.target.value })
                   }
+                  autoComplete="new-password"
+                  name="random_password_field"
                   placeholder={
                     editingId
                       ? isHindi

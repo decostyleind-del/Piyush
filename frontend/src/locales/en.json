@@ -129,7 +129,7 @@
       "employee_send_button": "Send to reviewer",
       "employee_sending": "Sending...",
       "employee_sent_status": "Documents sent — awaiting review",
-      "employee_send_success": "Documents sent for review",
+      "employee_send_success": "Leave apply sucessfully",
       "employee_upload_success": "Files uploaded",
       "employee_delete_success": "File removed",
       "employee_need_one_file": "Please attach at least one document first"
