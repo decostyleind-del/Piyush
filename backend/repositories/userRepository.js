@@ -36,6 +36,36 @@ class UserRepository {
   async insertMany(users) {
     return await User.insertMany(users);
   }
+
+  // ===== Employee Management (HR/Admin) — NEW =====
+
+  async findAllEmployees(role) {
+    // HR sees Employee + HOD, Admin sees everyone
+    const filter = role === "HR" ? { role: { $in: ["Employee", "HOD"] } } : {};
+    return await User.find(filter).select("-password").sort({ createdAt: -1 });
+  }
+
+  async createEmployee(payload) {
+    return await User.create(payload);
+  }
+
+  async updateEmployeeById(id, payload) {
+    return await User.findByIdAndUpdate(id, payload, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
+  }
+
+  async deleteEmployeeById(id) {
+    return await User.findByIdAndDelete(id);
+  }
+
+  async findByEmployeeCodeExcludingId(employeeCode, excludeId) {
+    return await User.findOne({
+      employeeCode,
+      _id: { $ne: excludeId },
+    });
+  }
 }
 
 module.exports = new UserRepository();

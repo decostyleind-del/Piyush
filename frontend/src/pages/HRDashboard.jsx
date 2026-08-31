@@ -18,6 +18,8 @@ import {
   Download,
   Send,
 } from "lucide-react";
+import { ReportButton } from "../components/ReportGeneratorModal";
+import { EmployeeManagement } from "../components/EmployeeManagementModal";
 
 const T = {
   ink: "#0c1120",
@@ -246,6 +248,7 @@ const StatCard = ({ icon: Icon, value, label, color, bg }) => (
 
 export const HRDashboard = ({ user, showToast }) => {
   const { t, i18n } = useTranslation();
+  const isHindi = i18n.language && i18n.language.startsWith("hi");
   const [activeTab, setActiveTab] = useState("leaves");
 
   const [leaves, setLeaves] = useState([]);
@@ -432,14 +435,19 @@ export const HRDashboard = ({ user, showToast }) => {
             t("hr.subtitle_leaves") ||
             "Company-wide leave requests, reviewed and recorded here.",
         }
-      : {
-          title: i18n.language.startsWith("hi")
-            ? "सहायता टिकट"
-            : "Support Tickets",
-          desc: i18n.language.startsWith("hi")
-            ? "लॉगिन समस्याओं के लिए कर्मचारियों के अनुरोध देखें और हल करें।"
-            : "View and resolve employee requests for login assistance.",
-        };
+      : activeTab === "support"
+        ? {
+            title: isHindi ? "सहायता टिकट" : "Support Tickets",
+            desc: isHindi
+              ? "लॉगिन समस्याओं के लिए कर्मचारियों के अनुरोध देखें और हल करें।"
+              : "View and resolve employee requests for login assistance.",
+          }
+        : {
+            title: isHindi ? "कर्मचारी प्रबंधन" : "Employee Management",
+            desc: isHindi
+              ? "कर्मचारी जोड़ें, संपादित करें, हटाएं या पूरी सूची देखें।"
+              : "Add, edit, delete or browse the full employee directory.",
+          };
 
   const pendingTicketsCount = tickets.filter(
     (tk) => tk.status === "Pending",
@@ -519,77 +527,106 @@ export const HRDashboard = ({ user, showToast }) => {
           <div
             style={{
               display: "flex",
-              gap: "0.5rem",
-              background: T.panel,
-              padding: "5px",
-              borderRadius: "9px",
-              border: `1px solid ${T.hairline}`,
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: "0.85rem",
             }}
           >
-            <button
-              onClick={() => setActiveTab("leaves")}
+            <ReportButton role="HR" isHindi={isHindi} />
+            <div
               style={{
-                padding: "0.65rem 1.1rem",
-                borderRadius: "7px",
-                border: "none",
-                background:
-                  activeTab === "leaves"
-                    ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
-                    : "transparent",
-                color: activeTab === "leaves" ? "#fff" : T.textDim,
-                fontWeight: 700,
-                fontSize: "0.85rem",
-                cursor: "pointer",
                 display: "flex",
-                alignItems: "center",
                 gap: "0.5rem",
+                background: T.panel,
+                padding: "5px",
+                borderRadius: "9px",
+                border: `1px solid ${T.hairline}`,
               }}
             >
-              <ClipboardList size={16} />{" "}
-              {t("hr.tab_leaves") || "Leave Register"}
-            </button>
-            <button
-              onClick={() => setActiveTab("support")}
-              style={{
-                padding: "0.65rem 1.1rem",
-                borderRadius: "7px",
-                border: "none",
-                background:
-                  activeTab === "support"
-                    ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
-                    : "transparent",
-                color: activeTab === "support" ? "#fff" : T.textDim,
-                fontWeight: 700,
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                position: "relative",
-              }}
-            >
-              <LifeBuoy size={16} />{" "}
-              {i18n.language.startsWith("hi")
-                ? "समर्थन टिकट"
-                : "Support Tickets"}
-              {pendingTicketsCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-5px",
-                    right: "-5px",
-                    background: "#ef4444",
-                    color: "#fff",
-                    fontSize: "0.65rem",
-                    padding: "2px 6px",
-                    borderRadius: "10px",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {pendingTicketsCount}
-                </span>
-              )}
-            </button>
+              <button
+                onClick={() => setActiveTab("leaves")}
+                style={{
+                  padding: "0.65rem 1.1rem",
+                  borderRadius: "7px",
+                  border: "none",
+                  background:
+                    activeTab === "leaves"
+                      ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
+                      : "transparent",
+                  color: activeTab === "leaves" ? "#fff" : T.textDim,
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <ClipboardList size={16} />{" "}
+                {t("hr.tab_leaves") || "Leave Register"}
+              </button>
+              <button
+                onClick={() => setActiveTab("support")}
+                style={{
+                  padding: "0.65rem 1.1rem",
+                  borderRadius: "7px",
+                  border: "none",
+                  background:
+                    activeTab === "support"
+                      ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
+                      : "transparent",
+                  color: activeTab === "support" ? "#fff" : T.textDim,
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  position: "relative",
+                }}
+              >
+                <LifeBuoy size={16} />{" "}
+                {isHindi ? "समर्थन टिकट" : "Support Tickets"}
+                {pendingTicketsCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-5px",
+                      right: "-5px",
+                      background: "#ef4444",
+                      color: "#fff",
+                      fontSize: "0.65rem",
+                      padding: "2px 6px",
+                      borderRadius: "10px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {pendingTicketsCount}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("employees")}
+                style={{
+                  padding: "0.65rem 1.1rem",
+                  borderRadius: "7px",
+                  border: "none",
+                  background:
+                    activeTab === "employees"
+                      ? `linear-gradient(to right, ${T.orange}, ${T.orangeDark})`
+                      : "transparent",
+                  color: activeTab === "employees" ? "#fff" : T.textDim,
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <Users size={16} /> {isHindi ? "कर्मचारी" : "Employees"}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -879,10 +916,6 @@ export const HRDashboard = ({ user, showToast }) => {
                             >
                               {l.leaveType}
                             </td>
-
-                            {/* ========================================================= */}
-                            {/* TOTAL HOUR CALCULATOR & TIME DISPLAY UI                     */}
-                            {/* ========================================================= */}
                             <td
                               style={{
                                 padding: "1.35rem 1rem",
@@ -964,7 +997,6 @@ export const HRDashboard = ({ user, showToast }) => {
                                 )}
                               </div>
                             </td>
-
                             <td
                               style={{
                                 padding: "1.35rem 1rem",
@@ -1211,7 +1243,6 @@ export const HRDashboard = ({ user, showToast }) => {
           </>
         )}
 
-        {/* ... SUPPORT TAB REMAINS COMPLETELY UNCHANGED ... */}
         {activeTab === "support" && (
           <div
             style={{
@@ -1237,12 +1268,10 @@ export const HRDashboard = ({ user, showToast }) => {
                   marginBottom: "0.5rem",
                 }}
               >
-                {i18n.language.startsWith("hi")
-                  ? "सक्रिय समर्थन अनुरोध"
-                  : "Active Support Requests"}
+                {isHindi ? "सक्रिय समर्थन अनुरोध" : "Active Support Requests"}
               </h3>
               <p style={{ fontSize: "0.9rem", color: T.textDim }}>
-                {i18n.language.startsWith("hi")
+                {isHindi
                   ? "कर्मचारियों द्वारा लॉगिन पेज से सबमिट किए गए टिकट। उनके विवरण देखने के लिए अपनी आंतरिक प्रणाली का उपयोग करें और उनका समाधान करें।"
                   : "Tickets submitted by employees from the login page. Check your main HR system for their details and resolve the ticket here once emailed."}
               </p>
@@ -1395,6 +1424,14 @@ export const HRDashboard = ({ user, showToast }) => {
             </div>
           </div>
         )}
+
+        {activeTab === "employees" && (
+          <EmployeeManagement
+            user={user}
+            showToast={showToast}
+            isHindi={isHindi}
+          />
+        )}
       </main>
 
       {selectedReason && (
@@ -1465,7 +1502,6 @@ export const HRDashboard = ({ user, showToast }) => {
         </div>
       )}
 
-      {/* ==================== ASK FOR DOCUMENT MODAL ==================== */}
       {askDocLeave && (
         <div
           style={{
@@ -1608,7 +1644,6 @@ export const HRDashboard = ({ user, showToast }) => {
         </div>
       )}
 
-      {/* ==================== VIEW SUBMITTED DOCUMENTS MODAL ==================== */}
       {viewDocsLeave && (
         <div
           style={{

@@ -17,6 +17,7 @@ import {
   Download,
   Send,
 } from "lucide-react";
+import { ReportButton } from "../components/ReportGeneratorModal";
 
 const T = {
   ink: "#0c1120",
@@ -497,14 +498,24 @@ export const AdminDashboard = ({ user, showToast }) => {
           </div>
           <div
             style={{
-              fontFamily: "'Noto Serif', 'Noto Serif Devanagari', serif",
-              fontSize: "0.95rem",
-              color: T.textDim,
-              fontStyle: "italic",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: "0.85rem",
             }}
           >
-            {filteredLeaves.length} {isHindi ? "में से" : "of"} {leaves.length}{" "}
-            {isHindi ? "रिकॉर्ड दिखाए गए" : "records shown"}
+            <ReportButton role="Admin" isHindi={isHindi} />
+            <div
+              style={{
+                fontFamily: "'Noto Serif', 'Noto Serif Devanagari', serif",
+                fontSize: "0.95rem",
+                color: T.textDim,
+                fontStyle: "italic",
+              }}
+            >
+              {filteredLeaves.length} {isHindi ? "में से" : "of"}{" "}
+              {leaves.length} {isHindi ? "रिकॉर्ड दिखाए गए" : "records shown"}
+            </div>
           </div>
         </div>
 

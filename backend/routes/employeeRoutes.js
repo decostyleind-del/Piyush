@@ -1,14 +1,7 @@
 const express = require("express");
 const router = express.Router();
-
-// Import your auth controller functions
-const { login, getMe } = require("../controllers/authController");
-const { protect } = require("../middleware/auth");
 const employeeController = require("../controllers/employeeController");
-router.post("/login", login);
-
-// THIS is the line fixing your 404 error
-router.get("/me", protect, getMe);
+// const { protect } = require("../middleware/authMiddleware"); // अगर auth middleware है तो attach करें
 
 router.get("/", employeeController.list);
 router.post("/", employeeController.create);

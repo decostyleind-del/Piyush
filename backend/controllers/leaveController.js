@@ -54,14 +54,10 @@ class LeaveController {
         discussedWithHOD,
       } = req.body;
 
-      // --- NEW LOGIC START ---
-      // Fetch the user to check their department
       const user = await userRepository.findById(employeeId);
 
-      // Set the default status
       let currentStatus = "Pending HOD";
 
-      // If the user is in Administration, skip HOD and send directly to HR
       if (
         user &&
         user.department === "Administration" &&
@@ -69,7 +65,6 @@ class LeaveController {
       ) {
         currentStatus = "Pending HR";
       }
-      // --- NEW LOGIC END ---
 
       const newLeave = await leaveRepository.create({
         employee: employeeId,
@@ -80,7 +75,7 @@ class LeaveController {
         endTime,
         reason,
         discussedWithHOD,
-        status: currentStatus, // Save the dynamically assigned status
+        status: currentStatus,
       });
 
       res
@@ -261,6 +256,56 @@ class LeaveController {
       res.json({ message: "Documents sent", leave: updated });
     } catch (err) {
       res.status(500).json({ message: "Server error", error: err.message });
+    }
+  }
+
+  // ===== Report Generation (HR/Admin) — NEW =====
+  async generateReport(req, res) {
+    try {
+      const { role } = req.query;
+      if (!["HR", "Admin"].includes(role)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      let employeeFilter = {};
+      if (role === "HR") {
+        employeeFilter = { role: { $in: ["Employee", "HOD"] } };
+      }
+
+      const employees = await User.find(employeeFilter).select("-password");
+      const allLeaves = await leaveRepository.find({});
+
+      const rows = employees.map((emp) => {
+        const empLeaves = allLeaves.filter(
+          (l) => String(l.employee?._id || l.employee) === String(emp._id),
+        );
+        return {
+          employeeId: emp._id,
+          name: emp.name,
+          employeeCode: emp.employeeCode,
+          department: emp.department,
+          role: emp.role,
+          total: empLeaves.length,
+          pending: empLeaves.filter((l) => l.status === "Pending").length,
+          approved: empLeaves.filter((l) => l.status === "Approved").length,
+          rejected: empLeaves.filter((l) => l.status === "Rejected").length,
+        };
+      });
+
+      const summary = {
+        totalEmployees: employees.length,
+        totalRequests: allLeaves.length,
+        totalPending: rows.reduce((s, r) => s + r.pending, 0),
+        totalApproved: rows.reduce((s, r) => s + r.approved, 0),
+        totalRejected: rows.reduce((s, r) => s + r.rejected, 0),
+        generatedAt: new Date(),
+      };
+
+      res.json({ summary, rows });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ message: "Failed to generate report", error: err.message });
     }
   }
 }

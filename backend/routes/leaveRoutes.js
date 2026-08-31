@@ -38,5 +38,6 @@ router
 
 //    Employee finalizes and sends documents for review
 router.route("/:id/proof-submit").put(leaveController.submitProof);
+router.get("/report", leaveController.generateReport);
 
 module.exports = router;
