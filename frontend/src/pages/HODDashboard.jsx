@@ -384,20 +384,30 @@ export const HODDashboard = ({ user, showToast }) => {
   };
 
   const stats = useMemo(() => {
-    const total = leaves.length;
-    const pending = leaves.filter((l) => l.status === "Pending").length;
-    const approved = leaves.filter((l) => l.status === "Approved").length;
-    const rejected = leaves.filter((l) => l.status === "Rejected").length;
-    return { total, pending, approved, rejected };
+    return {
+      total: leaves.length,
+      // Update this specific line to catch everything not approved/rejected:
+      pending: leaves.filter(
+        (l) => l.status !== "Approved" && l.status !== "Rejected",
+      ).length,
+      approved: leaves.filter((l) => l.status === "Approved").length,
+      rejected: leaves.filter((l) => l.status === "Rejected").length,
+    };
   }, [leaves]);
 
   const filteredLeaves = useMemo(() => {
     let result = leaves;
 
-    if (statusFilter !== "All") {
+    // Replace the old statusFilter check with this block:
+    if (statusFilter === "Pending") {
+      result = result.filter(
+        (l) => l.status !== "Approved" && l.status !== "Rejected",
+      );
+    } else if (statusFilter !== "All") {
       result = result.filter((l) => l.status === statusFilter);
     }
 
+    // ... leave your search logic (searchTerm) below this exactly as it is
     const q = searchTerm.trim().toLowerCase();
     if (q) {
       result = result.filter((l) => {

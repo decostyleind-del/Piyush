@@ -66,8 +66,7 @@ const StatusStamp = ({ status, label }) => {
   const cfg = {
     Approved: { color: T.sage, bg: T.sageDim },
     Rejected: { color: T.brick, bg: T.brickDim },
-    Pending: { color: T.orange, bg: T.orangeDim },
-  }[status] || { color: T.orange, bg: T.orangeDim };
+  }[status] || { color: T.orange, bg: T.orangeDim }; // defaults to orange for any pending variation
 
   return (
     <span
@@ -362,19 +361,30 @@ export const AdminDashboard = ({ user, showToast }) => {
     }
   };
 
+  // ✅ UPDATED: Pending correctly counts ANY status that isn't Approved or Rejected
   const stats = useMemo(() => {
     return {
       total: leaves.length,
-      pending: leaves.filter((l) => l.status === "Pending").length,
+      pending: leaves.filter(
+        (l) => l.status !== "Approved" && l.status !== "Rejected",
+      ).length,
       approved: leaves.filter((l) => l.status === "Approved").length,
       rejected: leaves.filter((l) => l.status === "Rejected").length,
     };
   }, [leaves]);
 
+  // ✅ UPDATED: "Pending" tab now properly filters for ANY pending state
   const filteredLeaves = useMemo(() => {
     let result = leaves;
-    if (statusFilter !== "All")
+
+    if (statusFilter === "Pending") {
+      result = result.filter(
+        (l) => l.status !== "Approved" && l.status !== "Rejected",
+      );
+    } else if (statusFilter !== "All") {
       result = result.filter((l) => l.status === statusFilter);
+    }
+
     const q = searchTerm.trim().toLowerCase();
     if (q) {
       result = result.filter((l) =>
