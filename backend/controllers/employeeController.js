@@ -75,13 +75,30 @@ class EmployeeController {
   }
 
   // PUT /employees/:id
+  // PUT /employees/:id
   async update(req, res) {
     try {
       const { id } = req.params;
-      const { role, employeeCode, ...rest } = req.body;
 
-      if (!MANAGE_ROLES.includes(role)) {
-        return res.status(403).json({ message: "Unauthorized" });
+      const { role, employeeCode, role_, empRole, ...rest } = req.body;
+
+      // STRICT HR CHECK
+      if (role !== "HR") {
+        return res.status(403).json({
+          message:
+            "Unauthorized: Only HR is permitted to update employee data.",
+        });
+      }
+
+      // Map frontend role keys back to db role key
+      const targetRole = role_ || empRole;
+      if (targetRole) {
+        rest.role = targetRole;
+      }
+
+      // PREVENT EMPTY STRING VALIDATION ERRORS
+      if (!rest.email || rest.email.trim() === "") {
+        delete rest.email;
       }
 
       if (employeeCode) {
@@ -114,7 +131,6 @@ class EmployeeController {
         .json({ message: "Failed to update employee", error: err.message });
     }
   }
-
   // DELETE /employees/:id
   async remove(req, res) {
     try {
@@ -138,5 +154,4 @@ class EmployeeController {
   }
 }
 
-module.exports = new EmployeeController();
 module.exports = new EmployeeController();

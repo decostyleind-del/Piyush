@@ -16,6 +16,9 @@ const seedDB = async () => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash("Test@123", salt);
+    const Adminpassword = await bcrypt.hash("Admin@678", salt);
+    const password = await bcrypt.hash("Admin@456", salt);
+    const hoadpssword = await bcrypt.hash("Admin@234", salt);
 
     const users = [
       // ==========================================
@@ -24,7 +27,7 @@ const seedDB = async () => {
       {
         name: "Apoorva Baheti",
         email: "apoorva@decostyle.co.in",
-        password: hashedPassword,
+        password: Adminpassword,
         role: "Admin",
         department: "Administration",
         employeeCode: "ADM001",
@@ -52,11 +55,22 @@ const seedDB = async () => {
       {
         name: "GB Sir",
         email: "gb@decostyle.co.in",
-        password: hashedPassword,
+        password: hoadpssword,
         role: "HOD",
         dob: "1980-01-01",
         department: "Sales",
         employeeCode: "107",
+        reportingManager: "ADM001",
+      },
+
+      {
+        name: "Kapil Mittal",
+        email: "print3d@decostyle.co.in",
+        password: password,
+        role: "HOD",
+        dob: "1980-08-09",
+        department: "Sales",
+        employeeCode: "print3D",
         reportingManager: "ADM001",
       },
 
@@ -68,7 +82,7 @@ const seedDB = async () => {
         email: "aakriti@company.com",
         password: hashedPassword,
         employeeCode: "408",
-        dob: "1984-04-13",
+        dob: "1998-04-13",
         role: "Employee",
         department: "IT",
         reportingManager: "270",
@@ -118,7 +132,7 @@ const seedDB = async () => {
         email: "shivam@company.com",
         password: hashedPassword,
         employeeCode: "443",
-        dob: "1984-04-13",
+        dob: "1998-04-13",
         role: "Employee",
         department: "IT",
         reportingManager: "270",
