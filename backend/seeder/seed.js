@@ -69,7 +69,7 @@ const seedDB = async () => {
         password: password,
         role: "HOD",
         dob: "1980-08-09",
-        department: "Sales",
+        department: "print3D",
         employeeCode: "print3D",
         reportingManager: "ADM001",
       },

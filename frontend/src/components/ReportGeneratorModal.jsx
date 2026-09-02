@@ -1,22 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import API from "../api/axios";
-import { FileBarChart2, X, Printer, Download, Loader2 } from "lucide-react";
+import {
+  FileBarChart2,
+  X,
+  Printer,
+  Download,
+  Loader2,
+  Search,
+  Calendar,
+} from "lucide-react";
 
 const T = {
-  ink: "#0c1120",
-  panel: "#141b2c",
-  panelRaised: "#1b2438",
-  hairline: "rgba(232,227,212,0.08)",
-  hairlineStrong: "rgba(232,227,212,0.14)",
-  text: "#ece7d9",
-  textDim: "#96917f",
   orange: "#f97316",
   orangeDark: "#ea580c",
-  sage: "#7ea08d",
-  brick: "#c06a56",
 };
 
-const toCSV = (rows, summary) => {
+const toCSV = (rows) => {
   const header = [
     "Name",
     "Employee Code",
@@ -47,11 +46,17 @@ export const ReportButton = ({ role, isHindi }) => {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
 
-  const generate = async () => {
-    setOpen(true);
+  // Filter States
+  const [timeframe, setTimeframe] = useState("all");
+  const [search, setSearch] = useState("");
+
+  // Fetch report data (only dependent on timeframe now, search is handled locally for speed & accuracy)
+  const fetchReport = async () => {
     setLoading(true);
     try {
-      const { data } = await API.get(`/leaves/report?role=${role}`);
+      const { data } = await API.get(
+        `/leaves/report?role=${role}&timeframe=${timeframe}`,
+      );
       setReport(data);
     } catch (err) {
       setReport(null);
@@ -60,13 +65,45 @@ export const ReportButton = ({ role, isHindi }) => {
     }
   };
 
+  useEffect(() => {
+    if (open) {
+      fetchReport();
+    }
+  }, [open, timeframe]);
+
+  // LOCAL FILTERING: Ensure total > 0 AND search matches Name or Employee Code
+  const displayedRows =
+    report?.rows?.filter((r) => {
+      // 1. Hide employees who haven't applied for leave
+      if (r.total === 0) return false;
+
+      // 2. Search filter (Name or Employee Code)
+      if (search.trim() !== "") {
+        const s = search.toLowerCase();
+        const matchName = r.name?.toLowerCase().includes(s);
+        const matchCode = String(r.employeeCode).toLowerCase().includes(s);
+        return matchName || matchCode;
+      }
+
+      return true;
+    }) || [];
+
+  // Recalculate summary boxes so they match the filtered view exactly
+  const summaryStats = {
+    employees: displayedRows.length,
+    totalLeaves: displayedRows.reduce((acc, r) => acc + r.total, 0),
+    pending: displayedRows.reduce((acc, r) => acc + r.pending, 0),
+    approved: displayedRows.reduce((acc, r) => acc + r.approved, 0),
+    rejected: displayedRows.reduce((acc, r) => acc + r.rejected, 0),
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   const handleDownload = () => {
-    if (!report) return;
-    const csv = toCSV(report.rows, report.summary);
+    if (displayedRows.length === 0) return;
+    const csv = toCSV(displayedRows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -79,7 +116,7 @@ export const ReportButton = ({ role, isHindi }) => {
   return (
     <>
       <button
-        onClick={generate}
+        onClick={() => setOpen(true)}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -124,7 +161,7 @@ export const ReportButton = ({ role, isHindi }) => {
               borderRadius: "10px",
               padding: "2.5rem",
               width: "100%",
-              maxWidth: "900px",
+              maxWidth: "1000px",
               position: "relative",
             }}
           >
@@ -146,7 +183,7 @@ export const ReportButton = ({ role, isHindi }) => {
 
             <h2
               style={{
-                fontSize: "1.5rem",
+                fontSize: "1.8rem",
                 fontWeight: 700,
                 marginBottom: "0.25rem",
               }}
@@ -164,7 +201,100 @@ export const ReportButton = ({ role, isHindi }) => {
               {new Date().toLocaleString()}
             </p>
 
-            {loading ? (
+            <div
+              className="no-print"
+              style={{
+                display: "flex",
+                gap: "1rem",
+                marginBottom: "2rem",
+                background: "#f8f9fa",
+                padding: "1rem",
+                borderRadius: "8px",
+                border: "1px solid #e5e5e5",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  background: "#fff",
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  borderRadius: "6px",
+                }}
+              >
+                <Search
+                  size={16}
+                  color="#666"
+                  style={{ marginRight: "0.5rem" }}
+                />
+                <input
+                  type="text"
+                  placeholder={
+                    isHindi
+                      ? "नाम या कोड से खोजें..."
+                      : "Search by name or code..."
+                  }
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{
+                    border: "none",
+                    outline: "none",
+                    width: "100%",
+                    fontSize: "0.9rem",
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  background: "#fff",
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  borderRadius: "6px",
+                }}
+              >
+                <Calendar
+                  size={16}
+                  color="#666"
+                  style={{ marginRight: "0.5rem" }}
+                />
+                <select
+                  value={timeframe}
+                  onChange={(e) => setTimeframe(e.target.value)}
+                  style={{
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    fontSize: "0.9rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="all">
+                    {isHindi ? "सभी समय" : "All Time"}
+                  </option>
+                  <option value="daily">
+                    {isHindi ? "आज (दैनिक)" : "Today (Daily)"}
+                  </option>
+                  <option value="weekly">
+                    {isHindi
+                      ? "पिछले 7 दिन (साप्ताहिक)"
+                      : "Last 7 Days (Weekly)"}
+                  </option>
+                  <option value="monthly">
+                    {isHindi
+                      ? "पिछले 30 दिन (मासिक)"
+                      : "Last 30 Days (Monthly)"}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            {loading && !report ? (
               <div
                 style={{
                   display: "flex",
@@ -189,7 +319,7 @@ export const ReportButton = ({ role, isHindi }) => {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
+                    gridTemplateColumns: "repeat(5, 1fr)",
                     gap: "1rem",
                     marginBottom: "1.75rem",
                   }}
@@ -197,20 +327,15 @@ export const ReportButton = ({ role, isHindi }) => {
                   {[
                     [
                       isHindi ? "कुल कर्मचारी" : "Employees",
-                      report.summary.totalEmployees,
+                      summaryStats.employees,
                     ],
                     [
-                      isHindi ? "लंबित" : "Pending",
-                      report.summary.totalPending,
+                      isHindi ? "कुल छुट्टियां" : "Total Leaves",
+                      summaryStats.totalLeaves,
                     ],
-                    [
-                      isHindi ? "स्वीकृत" : "Approved",
-                      report.summary.totalApproved,
-                    ],
-                    [
-                      isHindi ? "अस्वीकृत" : "Rejected",
-                      report.summary.totalRejected,
-                    ],
+                    [isHindi ? "लंबित" : "Pending", summaryStats.pending],
+                    [isHindi ? "स्वीकृत" : "Approved", summaryStats.approved],
+                    [isHindi ? "अस्वीकृत" : "Rejected", summaryStats.rejected],
                   ].map(([label, val]) => (
                     <div
                       key={label}
@@ -237,116 +362,155 @@ export const ReportButton = ({ role, isHindi }) => {
                   ))}
                 </div>
 
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  <thead>
-                    <tr
+                <div style={{ position: "relative", minHeight: "200px" }}>
+                  {loading && (
+                    <div
                       style={{
-                        borderBottom: "2px solid #111",
-                        textAlign: "left",
+                        position: "absolute",
+                        inset: 0,
+                        background: "rgba(255,255,255,0.6)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 10,
                       }}
                     >
-                      <th style={{ padding: "0.6rem 0.5rem" }}>
-                        {isHindi ? "नाम" : "Name"}
-                      </th>
-                      <th style={{ padding: "0.6rem 0.5rem" }}>
-                        {isHindi ? "कोड" : "Code"}
-                      </th>
-                      <th style={{ padding: "0.6rem 0.5rem" }}>
-                        {isHindi ? "विभाग" : "Dept"}
-                      </th>
-                      <th
-                        style={{
-                          padding: "0.6rem 0.5rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {isHindi ? "कुल" : "Total"}
-                      </th>
-                      <th
-                        style={{
-                          padding: "0.6rem 0.5rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {isHindi ? "लंबित" : "Pending"}
-                      </th>
-                      <th
-                        style={{
-                          padding: "0.6rem 0.5rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {isHindi ? "स्वीकृत" : "Approved"}
-                      </th>
-                      <th
-                        style={{
-                          padding: "0.6rem 0.5rem",
-                          textAlign: "center",
-                        }}
-                      >
-                        {isHindi ? "अस्वीकृत" : "Rejected"}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.rows.map((r) => (
+                      <Loader2 className="spin" size={24} color={T.orange} />
+                    </div>
+                  )}
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    <thead>
                       <tr
-                        key={r.employeeId}
-                        style={{ borderBottom: "1px solid #eee" }}
+                        style={{
+                          borderBottom: "2px solid #111",
+                          textAlign: "left",
+                        }}
                       >
-                        <td
-                          style={{ padding: "0.6rem 0.5rem", fontWeight: 600 }}
-                        >
-                          {r.name}
-                        </td>
-                        <td style={{ padding: "0.6rem 0.5rem" }}>
-                          {r.employeeCode}
-                        </td>
-                        <td style={{ padding: "0.6rem 0.5rem" }}>
-                          {r.department}
-                        </td>
-                        <td
+                        <th style={{ padding: "0.6rem 0.5rem" }}>
+                          {isHindi ? "नाम" : "Name"}
+                        </th>
+                        <th style={{ padding: "0.6rem 0.5rem" }}>
+                          {isHindi ? "कोड" : "Code"}
+                        </th>
+                        <th style={{ padding: "0.6rem 0.5rem" }}>
+                          {isHindi ? "विभाग" : "Dept"}
+                        </th>
+                        <th
                           style={{
                             padding: "0.6rem 0.5rem",
                             textAlign: "center",
                           }}
                         >
-                          {r.total}
-                        </td>
-                        <td
+                          {isHindi ? "कुल" : "Total"}
+                        </th>
+                        <th
                           style={{
                             padding: "0.6rem 0.5rem",
                             textAlign: "center",
                           }}
                         >
-                          {r.pending}
-                        </td>
-                        <td
+                          {isHindi ? "लंबित" : "Pending"}
+                        </th>
+                        <th
                           style={{
                             padding: "0.6rem 0.5rem",
                             textAlign: "center",
                           }}
                         >
-                          {r.approved}
-                        </td>
-                        <td
+                          {isHindi ? "स्वीकृत" : "Approved"}
+                        </th>
+                        <th
                           style={{
                             padding: "0.6rem 0.5rem",
                             textAlign: "center",
                           }}
                         >
-                          {r.rejected}
-                        </td>
+                          {isHindi ? "अस्वीकृत" : "Rejected"}
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {displayedRows.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            style={{
+                              textAlign: "center",
+                              padding: "4rem 2rem",
+                              color: "#666",
+                              fontSize: "1.1rem",
+                            }}
+                          >
+                            {isHindi
+                              ? "इस समय सीमा में किसी भी कर्मचारी ने छुट्टी के लिए आवेदन नहीं किया है।"
+                              : "No employees have applied for leave in this timeframe."}
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedRows.map((r) => (
+                          <tr
+                            key={r.employeeId}
+                            style={{ borderBottom: "1px solid #eee" }}
+                          >
+                            <td
+                              style={{
+                                padding: "0.6rem 0.5rem",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {r.name}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              {r.employeeCode}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              {r.department}
+                            </td>
+                            <td
+                              style={{
+                                padding: "0.6rem 0.5rem",
+                                textAlign: "center",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {r.total}
+                            </td>
+                            <td
+                              style={{
+                                padding: "0.6rem 0.5rem",
+                                textAlign: "center",
+                              }}
+                            >
+                              {r.pending}
+                            </td>
+                            <td
+                              style={{
+                                padding: "0.6rem 0.5rem",
+                                textAlign: "center",
+                              }}
+                            >
+                              {r.approved}
+                            </td>
+                            <td
+                              style={{
+                                padding: "0.6rem 0.5rem",
+                                textAlign: "center",
+                              }}
+                            >
+                              {r.rejected}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
                 <div
                   className="no-print"
@@ -359,6 +523,7 @@ export const ReportButton = ({ role, isHindi }) => {
                 >
                   <button
                     onClick={handleDownload}
+                    disabled={displayedRows.length === 0}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
@@ -367,9 +532,10 @@ export const ReportButton = ({ role, isHindi }) => {
                       borderRadius: "8px",
                       border: "1px solid #ccc",
                       background: "#fff",
-                      color: "#111",
+                      color: displayedRows.length === 0 ? "#aaa" : "#111",
                       fontWeight: 700,
-                      cursor: "pointer",
+                      cursor:
+                        displayedRows.length === 0 ? "not-allowed" : "pointer",
                     }}
                   >
                     <Download size={16} />
@@ -377,6 +543,7 @@ export const ReportButton = ({ role, isHindi }) => {
                   </button>
                   <button
                     onClick={handlePrint}
+                    disabled={displayedRows.length === 0}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
@@ -384,10 +551,12 @@ export const ReportButton = ({ role, isHindi }) => {
                       padding: "0.65rem 1.1rem",
                       borderRadius: "8px",
                       border: "none",
-                      background: T.orange,
+                      background:
+                        displayedRows.length === 0 ? "#ccc" : T.orange,
                       color: "#fff",
                       fontWeight: 700,
-                      cursor: "pointer",
+                      cursor:
+                        displayedRows.length === 0 ? "not-allowed" : "pointer",
                     }}
                   >
                     <Printer size={16} />
@@ -404,9 +573,7 @@ export const ReportButton = ({ role, isHindi }) => {
         @media print {
           body * { visibility: hidden; }
           #printable-report, #printable-report * { visibility: visible; }
-          #printable-report {
-            position: fixed; inset: 0; margin: 0; max-width: 100%; box-shadow: none;
-          }
+          #printable-report { position: fixed; inset: 0; margin: 0; max-width: 100%; box-shadow: none; }
           .no-print { display: none !important; }
         }
         .spin { animation: spin 1s linear infinite; }

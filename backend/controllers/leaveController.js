@@ -264,19 +264,44 @@ class LeaveController {
   // ===== Report Generation (HR/Admin) — FIXED =====
   async generateReport(req, res) {
     try {
-      const { role } = req.query;
+      const { role, timeframe, search } = req.query;
       if (!["HR", "Admin"].includes(role)) {
         return res.status(403).json({ message: "Unauthorized" });
       }
 
+      // 1. Filter Employees
       let employeeFilter = {};
       if (role === "HR") {
-        employeeFilter = { role: { $in: ["Employee", "HOD"] } };
+        employeeFilter.role = { $in: ["Employee", "HOD"] };
+      }
+      if (search) {
+        employeeFilter.name = { $regex: search, $options: "i" };
       }
 
       const employees = await User.find(employeeFilter).select("-password");
-      const allLeaves = await leaveRepository.find({});
 
+      // 2. Filter Leaves by Timeframe
+      let leaveFilter = {};
+      if (timeframe === "daily") {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        leaveFilter.createdAt = { $gte: start, $lte: end };
+      } else if (timeframe === "weekly") {
+        const start = new Date();
+        start.setDate(start.getDate() - 7);
+        leaveFilter.createdAt = { $gte: start };
+      } else if (timeframe === "monthly") {
+        const start = new Date();
+        start.setMonth(start.getMonth() - 1);
+        leaveFilter.createdAt = { $gte: start };
+      }
+
+      // Fetch leaves applying the time filter
+      const allLeaves = await leaveRepository.find(leaveFilter);
+
+      // 3. Aggregate Data
       const rows = employees.map((emp) => {
         const empLeaves = allLeaves.filter(
           (l) => String(l.employee?._id || l.employee) === String(emp._id),
@@ -288,7 +313,6 @@ class LeaveController {
           department: emp.department,
           role: emp.role,
           total: empLeaves.length,
-          // ✅ FIX: Now counts ANY status that isn't Approved or Rejected
           pending: empLeaves.filter(
             (l) => l.status !== "Approved" && l.status !== "Rejected",
           ).length,
@@ -299,7 +323,7 @@ class LeaveController {
 
       const summary = {
         totalEmployees: employees.length,
-        totalRequests: allLeaves.length,
+        totalRequests: rows.reduce((s, r) => s + r.total, 0),
         totalPending: rows.reduce((s, r) => s + r.pending, 0),
         totalApproved: rows.reduce((s, r) => s + r.approved, 0),
         totalRejected: rows.reduce((s, r) => s + r.rejected, 0),

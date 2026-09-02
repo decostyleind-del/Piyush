@@ -75,7 +75,6 @@ class EmployeeController {
   }
 
   // PUT /employees/:id
-  // PUT /employees/:id
   async update(req, res) {
     try {
       const { id } = req.params;
