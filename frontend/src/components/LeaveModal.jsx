@@ -75,7 +75,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
   const [customReason, setCustomReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New state for Mis-Punch selection
   const [misPunchType, setMisPunchType] = useState("Check-In");
 
   const today = new Date();
@@ -91,11 +90,10 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
     setEndTime("");
   }, [requestCategory]);
 
-  // Handle auto-setting today's date when Mis-Punch is selected
   useEffect(() => {
     if (leaveType === "Mis-Punch") {
       setStartDate(todayString);
-      setEndTime(""); // Clear end time as we only need one time
+      setEndTime("");
     }
   }, [leaveType, todayString]);
 
@@ -139,7 +137,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
       return showToast(t("modal.select_reason"), "error");
     }
 
-    // Prefix the reason with the punch type if it's a Mis-Punch
     if (leaveType === "Mis-Punch") {
       finalReason = `[Missed ${misPunchType}] ${finalReason}`;
     }
@@ -190,7 +187,15 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
     fontSize: "0.9rem",
     outline: "none",
     boxSizing: "border-box",
-    caretColor: "#3b82f6", // ADDED: Shows the blue blinking cursor for typing
+    caretColor: "#3b82f6",
+  };
+
+  // Reusable hint text for time fields
+  const timeHintStyle = {
+    fontSize: "0.65rem",
+    color: T.textDim,
+    marginTop: "0.3rem",
+    fontStyle: "italic",
   };
 
   return (
@@ -467,6 +472,10 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                       onChange={(e) => setStartTime(e.target.value)}
                       style={inputStyle}
                     />
+                    <div style={timeHintStyle}>
+                      * Press <b>A</b> for AM, <b>P</b> for PM, or click the
+                      clock icon.
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -486,6 +495,9 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                       onChange={(e) => setStartTime(e.target.value)}
                       style={inputStyle}
                     />
+                    <div style={timeHintStyle}>
+                      * Press <b>A</b> (AM) or <b>P</b> (PM)
+                    </div>
                   </div>
                   {!isSingleTimeApp && (
                     <div>
@@ -497,6 +509,9 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                         onChange={(e) => setEndTime(e.target.value)}
                         style={inputStyle}
                       />
+                      <div style={timeHintStyle}>
+                        * Press <b>A</b> (AM) or <b>P</b> (PM)
+                      </div>
                     </div>
                   )}
                 </>
