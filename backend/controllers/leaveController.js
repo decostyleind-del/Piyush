@@ -260,6 +260,8 @@ class LeaveController {
   }
 
   // ===== Report Generation (HR/Admin) — NEW =====
+
+  // ===== Report Generation (HR/Admin) — FIXED =====
   async generateReport(req, res) {
     try {
       const { role } = req.query;
@@ -286,7 +288,10 @@ class LeaveController {
           department: emp.department,
           role: emp.role,
           total: empLeaves.length,
-          pending: empLeaves.filter((l) => l.status === "Pending").length,
+          // ✅ FIX: Now counts ANY status that isn't Approved or Rejected
+          pending: empLeaves.filter(
+            (l) => l.status !== "Approved" && l.status !== "Rejected",
+          ).length,
           approved: empLeaves.filter((l) => l.status === "Approved").length,
           rejected: empLeaves.filter((l) => l.status === "Rejected").length,
         };

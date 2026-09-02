@@ -1,8 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LogIn, HelpCircle, X, Send, Eye, EyeOff } from "lucide-react"; // <-- Added Eye and EyeOff
+import {
+  LogIn,
+  HelpCircle,
+  X,
+  Send,
+  Eye,
+  EyeOff,
+  Calendar,
+} from "lucide-react";
 import API from "../api/axios";
 
 /* "Personnel Ledger" token system */
@@ -52,7 +60,9 @@ export const Login = ({ showToast }) => {
   const [dob, setDob] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // <-- State for Eye icon toggle
+  const [showPassword, setShowPassword] = useState(false);
+
+  const dateInputRef = useRef(null); // Reference for hidden native date picker
 
   // Support Ticket State
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -63,22 +73,54 @@ export const Login = ({ showToast }) => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Custom DOB Formatter (Handles both typing and native calendar selection)
+  const handleDobChange = (e) => {
+    let val = e.target.value;
+
+    // If selected from the native calendar icon (comes back as YYYY-MM-DD)
+    if (e.target.type === "date") {
+      if (!val) return;
+      const [y, m, d] = val.split("-");
+      setDob(`${d}-${m}-${y}`);
+      return;
+    }
+
+    // If manually typed in the text box
+    val = val.replace(/\D/g, ""); // Strip non-digits
+    if (val.length > 4) {
+      val =
+        val.substring(0, 2) +
+        "-" +
+        val.substring(2, 4) +
+        "-" +
+        val.substring(4, 8);
+    } else if (val.length > 2) {
+      val = val.substring(0, 2) + "-" + val.substring(2, 4);
+    }
+    setDob(val);
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
+      // If employee, convert DD-MM-YYYY back to YYYY-MM-DD for the backend
+      let formattedDob = dob;
+      if (!isAdminLogin && dob.length === 10) {
+        const [d, m, y] = dob.split("-");
+        formattedDob = `${y}-${m}-${d}`;
+      }
+
       const credentials = isAdminLogin
         ? { email, password }
-        : { employeeCode, dob };
+        : { employeeCode, dob: formattedDob };
+
       const user = await login(credentials);
       showToast("Login successful!", "success");
 
       // DUAL-ROLE ROUTING LOGIC
       if (!isAdminLogin) {
-        // If they logged in via Employee Portal, force them to Employee Dashboard
-        // so HOD/HR can apply for their own leave.
         navigate("/employee");
       } else {
-        // If they logged in via Management Portal, route by role
         if (user.role === "Admin") navigate("/admin");
         else if (user.role === "HR") navigate("/hr");
         else if (user.role === "HOD") navigate("/hod");
@@ -165,7 +207,7 @@ export const Login = ({ showToast }) => {
               lineHeight: 1.3,
             }}
           >
-            {t("login.title")}
+            {t("login.title") || "Leave Management"}
           </h1>
           <p
             style={{
@@ -174,7 +216,7 @@ export const Login = ({ showToast }) => {
               fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
             }}
           >
-            {t("login.subtitle")}
+            {t("login.subtitle") || "Sign in to your secure portal"}
           </p>
         </div>
 
@@ -206,7 +248,7 @@ export const Login = ({ showToast }) => {
               transition: "all 0.2s",
             }}
           >
-            {t("login.employee_portal")}
+            {t("login.employee_portal") || "Employee Portal"}
           </button>
           <button
             type="button"
@@ -225,7 +267,7 @@ export const Login = ({ showToast }) => {
               transition: "all 0.2s",
             }}
           >
-            {t("login.management_portal")}
+            {t("login.management_portal") || "HOD / HR / Admin"}
           </button>
         </div>
 
@@ -236,52 +278,104 @@ export const Login = ({ showToast }) => {
           {!isAdminLogin ? (
             <>
               <div>
-                <label style={fieldLabel}>{t("login.emp_code_label")}</label>
+                <label style={fieldLabel}>
+                  {t("login.emp_code_label") || "Employee Code"}
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder={t("login.emp_code_placeholder")}
+                  placeholder="e.g. 1234"
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value)}
                   style={fieldInput}
                 />
               </div>
               <div>
-                <label style={fieldLabel}>{t("login.dob_label")}</label>
-                <input
-                  type="date"
-                  required
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                  style={fieldInput}
-                />
+                <label style={fieldLabel}>
+                  {t("login.dob_label") || "Date of Birth"}
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    required
+                    placeholder="DD-MM-YYYY"
+                    maxLength={10}
+                    value={dob}
+                    onChange={handleDobChange}
+                    style={{ ...fieldInput, paddingRight: "2.5rem" }}
+                  />
+                  {/* Invisible native date input linked to the calendar icon */}
+                  <input
+                    type="date"
+                    ref={dateInputRef}
+                    onChange={handleDobChange}
+                    style={{
+                      position: "absolute",
+                      width: 0,
+                      height: 0,
+                      opacity: 0,
+                      pointerEvents: "none",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (dateInputRef.current) {
+                        try {
+                          dateInputRef.current.showPicker();
+                        } catch (e) {
+                          dateInputRef.current.focus();
+                        }
+                      }
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: "0.75rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: T.textDim,
+                      cursor: "pointer",
+                      padding: 0,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Calendar size={18} />
+                  </button>
+                </div>
               </div>
             </>
           ) : (
             <>
               <div>
-                <label style={fieldLabel}>{t("login.email_label")}</label>
+                <label style={fieldLabel}>
+                  {t("login.email_label") || "Email Address"}
+                </label>
                 <input
                   type="email"
                   required
-                  placeholder={t("login.email_placeholder")}
+                  placeholder={
+                    t("login.email_placeholder") || "name@company.com"
+                  }
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   style={fieldInput}
                 />
               </div>
               <div>
-                <label style={fieldLabel}>{t("login.password_label")}</label>
+                <label style={fieldLabel}>
+                  {t("login.password_label") || "Password"}
+                </label>
                 <div style={{ position: "relative" }}>
-                  {" "}
-                  {/* Wrapper for absolute positioning */}
                   <input
                     type={showPassword ? "text" : "password"}
                     required
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    style={{ ...fieldInput, paddingRight: "2.5rem" }} // Add padding for icon
+                    style={{ ...fieldInput, paddingRight: "2.5rem" }}
                   />
                   <button
                     type="button"
@@ -324,7 +418,7 @@ export const Login = ({ showToast }) => {
               boxShadow: "0 4px 14px rgba(201,162,75,0.3)",
             }}
           >
-            {t("login.sign_in")}
+            {t("login.sign_in") || "Sign In"}
           </button>
         </form>
 
@@ -361,7 +455,8 @@ export const Login = ({ showToast }) => {
                 e.currentTarget.style.background = "transparent";
               }}
             >
-              <HelpCircle size={18} /> {t("login.forgot_details")}
+              <HelpCircle size={18} />{" "}
+              {t("login.forgot_details") || "Forgot Employee Code or DOB?"}
             </button>
           </div>
         )}
@@ -419,7 +514,7 @@ export const Login = ({ showToast }) => {
                 color: T.text,
               }}
             >
-              {t("login.support_title")}
+              {t("login.support_title") || "Contact Support"}
             </h3>
             <p
               style={{
@@ -430,7 +525,8 @@ export const Login = ({ showToast }) => {
                 fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif",
               }}
             >
-              {t("login.support_desc")}
+              {t("login.support_desc") ||
+                "Please provide your details below and HR will assist you."}
             </p>
 
             <form
@@ -443,23 +539,29 @@ export const Login = ({ showToast }) => {
             >
               <div>
                 <label style={fieldLabel}>
-                  {t("login.support_email_label")}
+                  {t("login.support_email_label") || "Your Email"}
                 </label>
                 <input
                   type="email"
                   required
-                  placeholder={t("login.support_email_placeholder")}
+                  placeholder={
+                    t("login.support_email_placeholder") || "name@company.com"
+                  }
                   value={supportEmail}
                   onChange={(e) => setSupportEmail(e.target.value)}
                   style={fieldInput}
                 />
               </div>
               <div>
-                <label style={fieldLabel}>{t("login.support_msg_label")}</label>
+                <label style={fieldLabel}>
+                  {t("login.support_msg_label") || "Message"}
+                </label>
                 <textarea
                   required
                   rows="4"
-                  placeholder={t("login.support_msg_placeholder")}
+                  placeholder={
+                    t("login.support_msg_placeholder") || "How can we help?"
+                  }
                   value={supportMessage}
                   onChange={(e) => setSupportMessage(e.target.value)}
                   style={{ ...fieldInput, resize: "vertical" }}
@@ -489,10 +591,11 @@ export const Login = ({ showToast }) => {
                 }}
               >
                 {isSubmittingSupport ? (
-                  t("login.support_sending")
+                  t("login.support_sending") || "Sending..."
                 ) : (
                   <>
-                    <Send size={18} /> {t("login.support_send")}
+                    <Send size={18} />{" "}
+                    {t("login.support_send") || "Send Request"}
                   </>
                 )}
               </button>
