@@ -1003,7 +1003,13 @@ export const HRDashboard = ({ user, showToast }) => {
                                         letterSpacing: "0.05em",
                                       }}
                                     >
-                                      HOURLY
+                                      {l.leaveType === "Mis-Punch"
+                                        ? isHindi
+                                          ? "वास्तविक समय"
+                                          : "ACTUAL TIME"
+                                        : isHindi
+                                          ? "घंटे के अनुसार"
+                                          : "HOURLY"}
                                     </span>
                                   </span>
                                 )}

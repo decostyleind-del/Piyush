@@ -75,6 +75,9 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
   const [customReason, setCustomReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // New state for Mis-Punch selection
+  const [misPunchType, setMisPunchType] = useState("Check-In");
+
   const today = new Date();
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
@@ -88,12 +91,25 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
     setEndTime("");
   }, [requestCategory]);
 
+  // Handle auto-setting today's date when Mis-Punch is selected
+  useEffect(() => {
+    if (leaveType === "Mis-Punch") {
+      setStartDate(todayString);
+      setEndTime(""); // Clear end time as we only need one time
+    }
+  }, [leaveType, todayString]);
+
   const isSingleDateApp = [
     "Early Leaving",
     "Late Coming",
     "Loss in Hour (LIH)",
+    "Mis-Punch",
   ].includes(leaveType);
-  const isSingleTimeApp = ["Early Leaving", "Late Coming"].includes(leaveType);
+  const isSingleTimeApp = [
+    "Early Leaving",
+    "Late Coming",
+    "Mis-Punch",
+  ].includes(leaveType);
 
   const showTimeFields =
     requestCategory === "application" &&
@@ -121,6 +137,11 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
 
     if (!finalReason.trim()) {
       return showToast(t("modal.select_reason"), "error");
+    }
+
+    // Prefix the reason with the punch type if it's a Mis-Punch
+    if (leaveType === "Mis-Punch") {
+      finalReason = `[Missed ${misPunchType}] ${finalReason}`;
     }
 
     setIsSubmitting(true);
@@ -185,7 +206,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
         zIndex: 1000,
         padding: "1rem",
       }}
-      // REMOVED: onClick={onClose} so clicking the background won't close the modal
     >
       <style>
         {`
@@ -327,6 +347,7 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                 </option>
                 <option value="Late Coming">{t("modal.late_coming")}</option>
                 <option value="Loss in Hour (LIH)">{t("modal.lih")}</option>
+                <option value="Mis-Punch">Mis-Punch</option>
               </select>
             </div>
           )}
@@ -347,8 +368,12 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                style={inputStyle}
-                min={todayString}
+                style={{
+                  ...inputStyle,
+                  opacity: leaveType === "Mis-Punch" ? 0.7 : 1,
+                }}
+                min={leaveType === "Mis-Punch" ? undefined : todayString}
+                readOnly={leaveType === "Mis-Punch"}
               />
             </div>
             {!isSingleDateApp && (
@@ -370,38 +395,111 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns:
+                  leaveType === "Mis-Punch" ? "1fr" : "1fr 1fr",
                 gap: "1rem",
                 marginTop: "-0.5rem",
               }}
             >
-              <div>
-                <label style={labelStyle}>
-                  {leaveType === "Late Coming"
-                    ? t("modal.arrived_at")
-                    : leaveType === "Early Leaving"
-                      ? t("modal.leaving_at")
-                      : t("modal.start_time")}
-                </label>
-                <input
-                  type="time"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              {!isSingleTimeApp && (
-                <div>
-                  <label style={labelStyle}>{t("modal.end_time")}</label>
-                  <input
-                    type="time"
-                    required
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    style={inputStyle}
-                  />
+              {leaveType === "Mis-Punch" ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "1rem",
+                  }}
+                >
+                  <div>
+                    <label style={labelStyle}>Punch Type</label>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "1rem",
+                        marginTop: "0.8rem",
+                      }}
+                    >
+                      <label
+                        style={{
+                          color: T.text,
+                          fontSize: "0.9rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          value="Check-In"
+                          checked={misPunchType === "Check-In"}
+                          onChange={(e) => setMisPunchType(e.target.value)}
+                          style={{ accentColor: T.orange }}
+                        />
+                        Check-In
+                      </label>
+                      <label
+                        style={{
+                          color: T.text,
+                          fontSize: "0.9rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          value="Check-Out"
+                          checked={misPunchType === "Check-Out"}
+                          onChange={(e) => setMisPunchType(e.target.value)}
+                          style={{ accentColor: T.orange }}
+                        />
+                        Check-Out
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Actual Time</label>
+                    <input
+                      type="time"
+                      required
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div>
+                    <label style={labelStyle}>
+                      {leaveType === "Late Coming"
+                        ? t("modal.arrived_at")
+                        : leaveType === "Early Leaving"
+                          ? t("modal.leaving_at")
+                          : t("modal.start_time")}
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+                  {!isSingleTimeApp && (
+                    <div>
+                      <label style={labelStyle}>{t("modal.end_time")}</label>
+                      <input
+                        type="time"
+                        required
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        style={inputStyle}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

@@ -584,16 +584,22 @@ export const EmployeeDashboard = ({ user, showToast }) => {
                                 </span>
                                 <span
                                   style={{
-                                    marginLeft: "6px",
+                                    marginLeft: "4px",
                                     background: T.orangeDim,
                                     padding: "2px 6px",
                                     borderRadius: "4px",
-                                    fontSize: "0.7rem",
+                                    fontSize: "0.65rem",
                                     fontWeight: "bold",
                                     letterSpacing: "0.05em",
                                   }}
                                 >
-                                  {isHindi ? "घंटे के अनुसार" : "HOURLY"}
+                                  {l.leaveType === "Mis-Punch"
+                                    ? isHindi
+                                      ? "वास्तविक समय"
+                                      : "ACTUAL TIME"
+                                    : isHindi
+                                      ? "घंटे के अनुसार"
+                                      : "HOURLY"}
                                 </span>
                               </span>
                             )}

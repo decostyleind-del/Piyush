@@ -884,7 +884,13 @@ export const AdminDashboard = ({ user, showToast }) => {
                                     letterSpacing: "0.05em",
                                   }}
                                 >
-                                  {isHindi ? "घंटे के अनुसार" : "HOURLY"}
+                                  {l.leaveType === "Mis-Punch"
+                                    ? isHindi
+                                      ? "वास्तविक समय"
+                                      : "ACTUAL TIME"
+                                    : isHindi
+                                      ? "घंटे के अनुसार"
+                                      : "HOURLY"}
                                 </span>
                               </span>
                             )}
