@@ -377,7 +377,6 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                   ...inputStyle,
                   opacity: leaveType === "Mis-Punch" ? 0.7 : 1,
                 }}
-                // min={leaveType === "Mis-Punch" ? undefined : todayString}
                 readOnly={leaveType === "Mis-Punch"}
               />
             </div>
@@ -390,7 +389,7 @@ export const LeaveModal = ({ user, onClose, onSuccess, showToast }) => {
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   style={inputStyle}
-                  // min={startDate || todayString}
+                  min={startDate}
                 />
               </div>
             )}
